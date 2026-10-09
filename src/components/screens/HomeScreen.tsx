@@ -1,6 +1,7 @@
 import { categories } from "@/data/categories";
 import { QUESTIONS_PER_GAME, SECONDS_PER_QUESTION } from "@/lib/quiz/scoring";
 import { Button } from "@/components/ui/Button";
+import { NigerianFlag } from "@/components/ui/NigerianFlag";
 
 interface HomeScreenProps {
   onPlay: () => void;
@@ -15,20 +16,12 @@ const stats = [
 export function HomeScreen({ onPlay }: HomeScreenProps) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col items-center justify-center px-6 py-12 text-center">
-      {/* Small green-white-green flag mark (decorative) */}
-      <div
-        aria-hidden="true"
-        className="mb-8 flex h-12 w-[4.5rem] overflow-hidden rounded-lg shadow-lg shadow-brand/20 ring-1 ring-black/15"
-      >
-        <span className="flex-1 bg-brand" />
-        <span className="flex-1 bg-white" />
-        <span className="flex-1 bg-brand" />
-      </div>
+      <NigerianFlag />
 
       {/* Two fixed lines; the font size scales with the viewport so they never wrap. */}
       <h1 className="text-[clamp(1.5rem,8vw,3.75rem)] font-extrabold uppercase leading-[1.1] tracking-tight">
         <span className="block whitespace-nowrap">How well do you</span>
-        <span className="block whitespace-nowrap text-brand">know Nigeria?</span>
+        <span className="block whitespace-nowrap text-brand-ink">know Nigeria?</span>
       </h1>
 
       <div aria-hidden="true" className="mt-5 h-1 w-14 rounded-full bg-gold" />
@@ -48,7 +41,7 @@ export function HomeScreen({ onPlay }: HomeScreenProps) {
             key={stat.label}
             className={`px-3 min-[400px]:px-4 sm:px-6 ${i > 0 ? "border-l border-foreground/15" : ""}`}
           >
-            <span className="mr-1 font-bold text-brand">{stat.value}</span>
+            <span className="mr-1 font-bold text-brand-ink">{stat.value}</span>
             {stat.label}
           </li>
         ))}

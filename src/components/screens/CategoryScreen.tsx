@@ -12,14 +12,14 @@ export function CategoryScreen({ onBack, onSelect }: CategoryScreenProps) {
       <button
         type="button"
         onClick={onBack}
-        className="-ml-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-base font-semibold text-brand transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold"
+        className="-ml-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-base font-semibold text-brand-ink transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
       >
         <span aria-hidden="true">←</span> Back
       </button>
 
       <header className="mt-4 text-center sm:mt-6">
         <h1 className="text-2xl font-extrabold uppercase tracking-tight sm:text-4xl">
-          Choose a <span className="text-brand">category</span>
+          Choose a <span className="text-brand-ink">category</span>
         </h1>
         <div aria-hidden="true" className="mx-auto mt-4 h-1 w-14 rounded-full bg-gold" />
         <p className="mt-4 text-base text-foreground/70 sm:text-lg">
@@ -33,7 +33,7 @@ export function CategoryScreen({ onBack, onSelect }: CategoryScreenProps) {
             <button
               type="button"
               onClick={() => onSelect(category.id)}
-              className="group flex w-full items-center gap-3 rounded-2xl border border-foreground/10 bg-white p-4 text-left shadow-sm transition hover:border-brand hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gold sm:gap-4 sm:p-5"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-foreground/10 bg-surface p-4 text-left shadow-sm transition hover:border-brand hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus sm:gap-4 sm:p-5"
             >
               <span
                 aria-hidden="true"
@@ -49,7 +49,7 @@ export function CategoryScreen({ onBack, onSelect }: CategoryScreenProps) {
               </span>
               <span
                 aria-hidden="true"
-                className="shrink-0 text-xl text-brand/60 transition group-hover:text-brand"
+                className="shrink-0 text-xl text-brand-ink/60 transition group-hover:text-brand-ink"
               >
                 →
               </span>

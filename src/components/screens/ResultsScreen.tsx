@@ -47,28 +47,28 @@ export function ResultsScreen({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="mt-2 text-base font-extrabold uppercase tracking-widest text-foreground/60 focus:outline-none"
+        className="mt-2 text-base font-extrabold uppercase tracking-widest text-foreground/65 dark:text-foreground/60 focus:outline-none"
       >
         Quiz completed
       </h1>
       <div aria-hidden="true" className="mt-3 h-1 w-14 rounded-full bg-gold" />
 
       {categoryLabel && (
-        <p className="mt-4 rounded-full bg-brand-soft px-4 py-1 text-sm font-bold text-brand">
+        <p className="mt-4 rounded-full bg-brand-soft px-4 py-1 text-sm font-bold text-brand-ink">
           {categoryLabel}
         </p>
       )}
 
       <section
         aria-label="Your result"
-        className="mt-6 w-full rounded-3xl border border-foreground/10 bg-white px-6 py-7 shadow-sm"
+        className="mt-6 w-full rounded-3xl border border-foreground/10 bg-surface px-6 py-7 shadow-sm"
       >
-        <p className="text-2xl font-extrabold text-brand-dark sm:text-3xl">
+        <p className="text-2xl font-extrabold text-brand-deep sm:text-3xl">
           {getResultMessage(score)}
         </p>
 
         <p className="mt-3 flex items-baseline justify-center gap-2">
-          <span className="text-7xl font-extrabold leading-none tracking-tight text-brand sm:text-8xl">
+          <span className="text-7xl font-extrabold leading-none tracking-tight text-brand-ink sm:text-8xl">
             {score}
           </span>
           <span className="text-2xl font-bold text-foreground/50">/ {MAX_SCORE}</span>
@@ -81,7 +81,7 @@ export function ResultsScreen({
           aria-valuemax={MAX_SCORE}
           aria-valuenow={score}
           aria-valuetext={`${score} out of ${MAX_SCORE} points`}
-          className="mt-5 h-4 w-full overflow-hidden rounded-full bg-foreground/10"
+          className="mt-5 h-4 w-full overflow-hidden rounded-full bg-foreground/10 dark:bg-foreground/5"
         >
           <div
             className="score-bar-fill h-full rounded-full bg-brand"
@@ -90,7 +90,7 @@ export function ResultsScreen({
         </div>
 
         <p className="mt-4 text-base font-semibold text-foreground/70">
-          <span className="font-extrabold text-brand">{correct}</span> of {QUESTIONS_PER_GAME}{" "}
+          <span className="font-extrabold text-brand-ink">{correct}</span> of {QUESTIONS_PER_GAME}{" "}
           correct
         </p>
       </section>

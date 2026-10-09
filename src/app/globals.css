@@ -1,17 +1,50 @@
 @import "tailwindcss";
 
+/* `dark:` utilities apply when <html data-theme="dark"> is set (see src/lib/theme.ts). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Light is the default and keeps the original look. Colours that change per theme are variables. */
 :root {
   color-scheme: light;
   --background: #fbfbf8;
   --foreground: #12261c;
+  --surface: #ffffff;
+  --brand-soft: #e6f4ec;
+  /* Green used for text. Fills keep the fixed brand green below. WCAG AA: 4.5:1 on every light surface. */
+  --brand-ink: #007d4b;
+  --brand-deep: #006b40;
+  /* Low-time red: text 4.5:1, bar fill 3:1 against its track. */
+  --danger-ink: #e5003d;
+  --danger-fill: #f91f54;
+  /* Keyboard focus ring: 3:1 against the page, cards and pale-green surfaces. */
+  --focus-ring: #ac8204;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0e1713;
+  --foreground: #e8f1ec;
+  --surface: #16231c;
+  --brand-soft: #1b3a2b;
+  --brand-ink: #3ecf8e;
+  --brand-deep: #7ae0b4;
+  --danger-ink: #ff637e;
+  --danger-fill: #ff2056;
+  --focus-ring: #f2b705;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
   --color-brand: #008751;
   --color-brand-dark: #006b40;
-  --color-brand-soft: #e6f4ec;
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-deep: var(--brand-deep);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-fill: var(--danger-fill);
+  --color-focus: var(--focus-ring);
   --color-gold: #f2b705;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

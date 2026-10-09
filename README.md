@@ -23,6 +23,7 @@ A fun, replayable multiple-choice trivia game that tests your knowledge of Niger
   | 0–49 | Keep Learning! 📚 |
 
 - **Play Again** (a fresh set of questions in the same category) or **Choose Another Category**.
+- **Light and dark themes:** a toggle in the top-right corner switches themes and remembers your choice in the browser; first-time visitors always start in light mode.
 - **Accessibility:** real buttons, visible keyboard focus, keyboard shortcuts (press `A`–`D` or `1`–`4` to answer), correct/incorrect feedback that doesn't rely on colour alone, and decorative animation disabled for users who prefer reduced motion.
 
 The product requirements are in [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
@@ -71,12 +72,14 @@ npm install
 
 ## Tests
 
-The tests cover the game logic and the question data (not the React components):
+The tests cover the game logic, the question data, the theme script and the colour contrast (not the React components):
 
 - `tests/quizReducer.test.ts`: game state transitions, scoring, answer locking, timeout handling, results and replay.
 - `tests/selectQuestions.test.ts`: random selection, no repeated questions, option shuffling.
 - `tests/scoring.test.ts`: scoring constants, result-message bands and score boundaries.
 - `tests/data.test.ts`: validates the question bank (see below).
+- `tests/theme.test.ts`: the light/dark theme helper and the script that restores the saved theme before the page paints.
+- `tests/contrast.test.ts`: checks the light and dark colours against WCAG AA contrast ratios, and that the Nigerian flag's colours stay fixed.
 
 ## Project structure
 
@@ -88,12 +91,13 @@ src/
     screens/            HomeScreen, CategoryScreen, QuizScreen, ResultsScreen
     quiz/               QuestionPanel, AnswerOption, TimerBar, FeedbackBanner
     results/            Trophy and Confetti (decorative)
-    ui/                 Shared Button
+    ui/                 Shared Button, ThemeToggle (light/dark switch), NigerianFlag (fixed-colour flag mark)
   data/
     categories.ts       The four categories
     questions/          One file per category, plus index.ts combining them
   lib/
     types.ts            Shared types
+    theme.ts            Theme helpers and the script that applies the saved theme before first paint
     quiz/               quizReducer, scoring, selectQuestions, useCountdown, validateQuestions
 tests/                  Vitest tests
 PROJECT_CONTEXT.md      Product requirements

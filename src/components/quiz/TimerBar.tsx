@@ -24,7 +24,7 @@ export function TimerBar({ remainingMs, totalSeconds }: TimerBarProps) {
       >
         <div
           className={`h-full rounded-full motion-safe:transition-[width] motion-safe:duration-100 motion-safe:ease-linear ${
-            isLow ? "bg-rose-500" : "bg-brand"
+            isLow ? "bg-danger-fill" : "bg-brand"
           }`}
           style={{ width: `${fraction * 100}%` }}
         />
@@ -32,7 +32,7 @@ export function TimerBar({ remainingMs, totalSeconds }: TimerBarProps) {
       <span
         aria-hidden="true"
         className={`w-14 text-right text-lg font-extrabold tabular-nums ${
-          isLow ? "text-rose-600" : "text-brand"
+          isLow ? "text-danger-ink" : "text-brand-ink"
         }`}
       >
         {secondsLeft}s

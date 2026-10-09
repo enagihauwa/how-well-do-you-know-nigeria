@@ -7,9 +7,11 @@ interface FeedbackBannerProps {
 }
 
 const styles: Record<FeedbackKind, string> = {
-  correct: "border-brand/30 bg-brand-soft text-brand-dark",
-  wrong: "border-rose-300 bg-rose-50 text-rose-800",
-  timeout: "border-gold/60 bg-amber-50 text-amber-900",
+  correct: "border-brand/30 bg-brand-soft text-brand-deep",
+  wrong:
+    "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200",
+  timeout:
+    "border-gold/60 bg-amber-50 text-amber-900 dark:border-gold/40 dark:bg-amber-950/50 dark:text-amber-200",
 };
 
 const titles: Record<FeedbackKind, string> = {
