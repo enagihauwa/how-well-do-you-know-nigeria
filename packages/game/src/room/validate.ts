@@ -102,7 +102,8 @@ export function parseClientMessage(raw: string): ClientMessage | null {
     if (!str(v.playerId, 64) || !ID_PATTERN.test(v.playerId)) return null;
     if (!str(v.secret, 128) || v.secret.length < 16) return null;
     if (!str(v.name, MAX_NAME_LENGTH * 4)) return null;
-    return { type: "hello", playerId: v.playerId, secret: v.secret, name: v.name };
+    if (v.token !== undefined && !str(v.token, 512)) return null;
+    return { type: "hello", playerId: v.playerId, secret: v.secret, name: v.name, ...(v.token !== undefined && { token: v.token }) };
   }
   if (v.type === "action") {
     const action = parseAction(v.action);

@@ -1,13 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import WebSocket from "ws";
 import { noTalkAmCards } from "@naija/game/data/noTalkAmCards";
 import { allQuestions } from "@naija/game/data/questions";
 import { sortItems } from "@naija/game/data/sortItems";
 import { yearItems } from "@naija/game/data/yearItems";
 import type { TriviaView } from "@naija/game/modes/trivia";
-import type { ClientAction } from "@naija/game/room/engine";
-import { CLOSE_BAD_SECRET, CLOSE_ROOM_NOT_FOUND, type ServerMessage } from "@naija/game/room/protocol";
+import { CLOSE_BAD_SECRET, CLOSE_ROOM_NOT_FOUND } from "@naija/game/room/protocol";
 import { startRoomServer } from "../src/roomServer";
+import { TestPhone } from "./phone";
 
 let server: Awaited<ReturnType<typeof startRoomServer>>;
 let base = "";
@@ -21,34 +20,10 @@ beforeAll(async () => {
 });
 afterAll(() => server.close());
 
-/** A phone: a real WebSocket plus every message it received. */
-class Phone {
-  ws: WebSocket;
-  messages: ServerMessage[] = [];
-  closeCode: Promise<number>;
-  constructor(code: string, public id: string, secret = `${id}-secret-0123456789`, name = id, port = server.port) {
-    this.ws = new WebSocket(`ws://localhost:${port}/rooms/${code}`);
-    this.ws.on("message", (data) => this.messages.push(JSON.parse(data.toString())));
-    this.ws.on("open", () => this.ws.send(JSON.stringify({ type: "hello", playerId: id, secret, name })));
-    this.closeCode = new Promise((resolve) => this.ws.on("close", (code) => resolve(code)));
-  }
-  act(action: ClientAction) {
-    this.ws.send(JSON.stringify({ type: "action", action }));
-  }
-  get view() {
-    return [...this.messages].reverse().find((m) => m.type === "view")?.view ?? null;
-  }
-  get chat() {
-    return this.messages.flatMap((m) => (m.type === "chat" ? m.messages.map((c) => c.text) : []));
-  }
-  async until<T>(check: () => T | null | undefined | false, ms = 2000): Promise<T> {
-    const end = Date.now() + ms;
-    for (;;) {
-      const value = check();
-      if (value) return value;
-      if (Date.now() > end) throw new Error(`${this.id}: timed out; last: ${JSON.stringify(this.messages.at(-1))}`);
-      await new Promise((r) => setTimeout(r, 10));
-    }
+/** A phone on this file's server. */
+class Phone extends TestPhone {
+  constructor(code: string, id: string, secret?: string, name?: string, port = server.port) {
+    super({ port, code, id, secret, name });
   }
 }
 
@@ -111,7 +86,9 @@ describe("room server", () => {
     a.act({ type: "set_team", teamId: "t0" });
     b.act({ type: "set_team", teamId: "t0" });
     c.act({ type: "set_team", teamId: "t1" });
-    await c.until(() => c.view?.players.every((p) => p.teamId !== null));
+    // Players are seated on joining, so wait for the moves themselves, not just for a team.
+    const wanted: Record<string, string> = { cat: "t0", dan: "t0", eze: "t1" };
+    await c.until(() => c.view?.players.length === 3 && c.view.players.every((p) => p.teamId === wanted[p.id]));
     a.act({ type: "chat", text: "hello everyone", toTeam: false });
     a.act({ type: "chat", text: "team secret", toTeam: true });
     await b.until(() => b.chat.includes("team secret"));
@@ -126,9 +103,9 @@ describe("room server", () => {
     const p = new Phone(code, "fola");
     await p.until(() => p.view);
     const before = p.messages.filter((m) => m.type === "view").length;
-    p.act({ type: "set_team", teamId: "t0" });
-    p.act({ type: "set_team", teamId: "t0" }); // no change: no second view
-    await p.until(() => p.view?.players[0].teamId === "t0");
+    p.act({ type: "set_team", teamId: "t1" }); // seated on t0 on joining
+    p.act({ type: "set_team", teamId: "t1" }); // no change: no second view
+    await p.until(() => p.view?.players[0].teamId === "t1");
     await new Promise((r) => setTimeout(r, 50));
     expect(p.messages.filter((m) => m.type === "view").length).toBe(before + 1);
     p.ws.close();

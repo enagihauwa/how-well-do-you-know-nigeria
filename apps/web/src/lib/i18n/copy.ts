@@ -290,6 +290,8 @@ const en: Copy = {
     chat_too_fast: "Slow down a little before sending more.",
     chat_blocked: "You're describing, so chat is off until the round ends.",
     bots_unsupported: "Bots can't play this game. Remove them or pick another game.",
+    sign_in_required: "Ranked is for signed-up players. Sign up free to play ranked.",
+    account_in_use: "Your account is already playing in this match.",
   },
   match: {
     teamLocked: (name) => `${name} picked this for the team. Anyone on the team can change it.`,
@@ -504,6 +506,8 @@ const pcm: Copy = {
     chat_too_fast: "Take am easy small before you send again.",
     chat_blocked: "Na you dey explain, so chat off till the round finish.",
     bots_unsupported: "Bots no fit play this game. Comot dem or pick another game.",
+    sign_in_required: "Ranked na for people wey don sign up. Sign up free make you play ranked.",
+    account_in_use: "Your account don already dey play for this match.",
   },
   match: {
     teamLocked: (name) => `${name} pick am for the team. Anybody for the team fit change am.`,

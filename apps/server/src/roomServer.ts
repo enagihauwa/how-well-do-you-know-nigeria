@@ -1,26 +1,37 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { toNodeHandler } from "better-auth/node";
 import { WebSocketServer, type WebSocket } from "ws";
 import { isPrivateModeId, type ModeContent } from "@naija/game/modes";
-import type { ModeId } from "@naija/game/modes/types";
+import type { MatchSummary, ModeId } from "@naija/game/modes/types";
+import { isValidSoloResult, RANKED_MODES, settleMatch, settleSolo, type Award } from "@naija/game/progress/progress";
 import { generateRoomCode, isRoomCode, normalizeRoomCode } from "@naija/game/room/code";
 import { createPublicRoom, createRoom, type PublicRoomOptions, type RoomState } from "@naija/game/room/engine";
 import { RoomHost } from "@naija/game/room/host";
 import { CLOSE_BAD_SECRET, CLOSE_REPLACED, CLOSE_ROOM_NOT_FOUND, type ServerMessage } from "@naija/game/room/protocol";
 import { QUEUES as DEFAULT_QUEUES, isQueueId, type QueueId } from "@naija/game/room/queues";
+import { matchResult } from "@naija/game/room/results";
 import { parseClientMessage } from "@naija/game/room/validate";
+import { AUTH_BASE_PATH, type AccountUser, type Accounts } from "./accounts";
 
 /**
  * The real-time room server. One process holds every open room in memory: the room engine is
  * single-threaded per room by construction (Node runs one event at a time), so answer locks,
  * deadlines and scores need no locks or Redis. Rooms are lost on restart; players see
- * "reconnecting" and then "room not found". Persisting finished matches to Postgres comes next.
+ * "reconnecting" and then "room not found". Progress (XP, wins, ranks) is saved when a match ends.
  *
- *   POST /rooms {mode?}       → { code }   create a private room, opening on that game
- *   POST /quickplay {queue}   → { code }   a public room for that queue, filling or new
- *   GET  /health              → ok
- *   WS   /rooms/:code         → hello, then actions; the server sends ServerMessage
+ *   POST /rooms {mode?}           → { code }      create a private room, opening on that game
+ *   POST /quickplay {queue}       → { code }      a public room for that queue, filling or new;
+ *                                                  ranked queues need a signed-up account
+ *   GET  /health                  → ok
+ *   WS   /rooms/:code             → hello, then actions; the server sends ServerMessage
+ *
+ * With accounts (bearer token in `Authorization`):
+ *   *    /api/auth/*              Better Auth: guest sign-in, sign-up, sign-in, sign-out
+ *   GET  /api/me                  → { user, progress }
+ *   POST /api/progress/solo {…}   → { award }     a finished solo quiz
+ *   GET  /api/leaderboard?mode=&by=wins|rank → { rows }
  */
 
 export interface RoomServerOptions {
@@ -34,8 +45,10 @@ export interface RoomServerOptions {
   log?: (message: string) => void;
   /** Overrides for the Quick Play queues, e.g. a lower minimum while testing. */
   queues?: Partial<Record<QueueId, Partial<PublicRoomOptions>>>;
-  /** Called once when a public match ends: where ratings get saved once accounts exist. */
+  /** Called once when a public match ends. */
   onPublicMatchFinished?: (room: RoomState) => void;
+  /** Accounts and progress. Without them, everyone plays as a guest and nothing is saved. */
+  accounts?: Accounts;
 }
 
 
@@ -53,8 +66,22 @@ interface OpenRoom {
   sockets: Map<string, WebSocket>;
   /** Proves seat ownership: the first hello for a player id binds its secret. */
   secrets: Map<string, string>;
+  /** The account behind each seat that connected with a valid token. */
+  users: Map<string, AccountUser>;
+  /** The match whose progress was last saved, so each match is saved once. */
+  settled: MatchSummary | null;
+  /** Ranked rooms: the MMR of each player matched here, to match newcomers of similar skill. */
+  mmr: number[];
+  openedAt: number;
   idleTimer: ReturnType<typeof setTimeout> | null;
 }
+
+/** Ranked matchmaking: how far apart in MMR players may be, widening the longer a room waits. */
+const MMR_WINDOW = 150;
+const MMR_WINDOW_GROWTH_PER_S = 10;
+/** One solo result per player this often, at most: a real quiz takes longer. */
+const SOLO_MIN_INTERVAL_MS = 20_000;
+const LEADERBOARD_MAX = 100;
 
 const sameSecret = (a: string, b: string) => {
   const x = Buffer.from(a);
@@ -63,7 +90,9 @@ const sameSecret = (a: string, b: string) => {
 };
 
 export function startRoomServer(options: RoomServerOptions) {
-  const { content, allowedOrigins = [], idleMs = 10 * 60_000, heartbeatMs = 20_000, log = () => {} } = options;
+  const { content, allowedOrigins = [], idleMs = 10 * 60_000, heartbeatMs = 20_000, log = () => {}, accounts } = options;
+  const authHandler = accounts ? toNodeHandler(accounts.handler) : null;
+  const lastSolo = new Map<string, number>();
   const rooms = new Map<string, OpenRoom>();
   const queues = Object.fromEntries(
     (Object.keys(DEFAULT_QUEUES) as QueueId[]).map((id) => [id, { ...DEFAULT_QUEUES[id], ...options.queues?.[id] }]),
@@ -78,7 +107,9 @@ export function startRoomServer(options: RoomServerOptions) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
       res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "content-type");
+      res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
+      // Sign-in responses carry the new session token in this header (bearer sessions).
+      res.setHeader("Access-Control-Expose-Headers", "set-auth-token");
     }
   };
 
@@ -94,6 +125,10 @@ export function startRoomServer(options: RoomServerOptions) {
       reported: false,
       sockets: new Map(),
       secrets: new Map(),
+      users: new Map(),
+      settled: null,
+      mmr: [],
+      openedAt: Date.now(),
       idleTimer: null,
     };
     room.host = new RoomHost(queue ? createPublicRoom(code, queues[queue]) : createRoom(code, mode), {
@@ -104,11 +139,43 @@ export function startRoomServer(options: RoomServerOptions) {
           room.reported = true;
           options.onPublicMatchFinished?.(state);
         }
+        if (state.status === "finished" && state.summary && state.summary !== room.settled) {
+          room.settled = state.summary;
+          void settle(room, state);
+        }
       },
     });
     rooms.set(code, room);
     scheduleIdle(code, room);
     return room;
+  }
+
+  /** Saves what everyone with a profile earned in a finished match, then tells each of them. */
+  async function settle(room: OpenRoom, state: RoomState) {
+    if (!accounts) return;
+    const result = matchResult(state);
+    const seated = result?.players.filter((p) => !p.bot && room.users.has(p.playerId)) ?? [];
+    if (!result || seated.length === 0) return;
+    const userOf = (playerId: string) => room.users.get(playerId)!.id;
+    const awards: Record<string, Award> = {};
+    try {
+      await accounts.progress.update(
+        seated.map((p) => userOf(p.playerId)),
+        (current) => {
+          const byPlayer = Object.fromEntries(seated.map((p) => [p.playerId, current[userOf(p.playerId)]]));
+          const out: Record<string, (typeof current)[string]> = {};
+          for (const [playerId, settled] of Object.entries(settleMatch(result, byPlayer, Date.now()))) {
+            out[userOf(playerId)] = settled.progress;
+            awards[playerId] = settled.award;
+          }
+          return out;
+        },
+      );
+    } catch (error) {
+      log(`room ${state.code}: saving progress failed: ${String(error)}`);
+      return;
+    }
+    for (const [playerId, award] of Object.entries(awards)) sendTo(room, playerId, { type: "award", award });
   }
 
   function sendTo(room: OpenRoom, playerId: string, message: ServerMessage) {
@@ -132,18 +199,77 @@ export function startRoomServer(options: RoomServerOptions) {
     return rooms.has(code) ? null : code;
   }
 
-  /** The fullest public room of this queue still filling, so matches start as soon as possible. */
-  function findOrOpenPublic(queue: QueueId): string | null {
-    let best: [string, number] | null = null;
+  /**
+   * The public room of this queue to join. Casual: the fullest one still filling, so matches
+   * start as soon as possible. Ranked (with `mmr`): the closest in average MMR, within a window
+   * that widens the longer the room has waited; otherwise a new room.
+   */
+  function findOrOpenPublic(queue: QueueId, mmr: number | null = null): string | null {
+    let best: { code: string; players: number; gap: number } | null = null;
+    const now = Date.now();
     for (const [code, room] of rooms) {
       const state = room.host.room;
       if (room.queue !== queue || state.status !== "lobby" || state.players.length >= state.maxPlayers) continue;
-      if (!best || state.players.length > best[1]) best = [code, state.players.length];
+      let gap = 0;
+      if (mmr !== null && room.mmr.length) {
+        gap = Math.abs(room.mmr.reduce((a, b) => a + b, 0) / room.mmr.length - mmr);
+        if (gap > MMR_WINDOW + ((now - room.openedAt) / 1000) * MMR_WINDOW_GROWTH_PER_S) continue;
+      }
+      const better = !best || (mmr !== null ? gap < best.gap : state.players.length > best.players);
+      if (better) best = { code, players: state.players.length, gap };
     }
-    if (best) return best[0];
-    const code = newCode();
-    if (code) openRoom(code, queue);
+    let code = best?.code ?? null;
+    if (!code) {
+      code = newCode();
+      if (code) openRoom(code, queue);
+    }
+    if (code && mmr !== null) rooms.get(code)!.mmr.push(mmr);
     return code;
+  }
+
+  const bearer = (req: IncomingMessage) => req.headers.authorization?.replace(/^bearer\s+/i, "") || null;
+
+  /** Account and progress endpoints. Returns false if the request is not one of them. */
+  async function handleAccountRoute(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    if (!url.pathname.startsWith("/api/")) return false;
+    if (!accounts || !authHandler) return json(res, 404, { error: "accounts_disabled" }), true;
+    if (url.pathname.startsWith(`${AUTH_BASE_PATH}/`)) return await authHandler(req, res), true;
+
+    const user = await accounts.userFromToken(bearer(req));
+    if (req.method === "GET" && url.pathname === "/api/me") {
+      if (!user) return json(res, 401, { error: "signed_out" }), true;
+      return json(res, 200, { user, progress: await accounts.progress.get(user.id) }), true;
+    }
+    if (req.method === "POST" && url.pathname === "/api/progress/solo") {
+      if (!user) return json(res, 401, { error: "signed_out" }), true;
+      let body: unknown;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        return json(res, 400, { error: "bad_request" }), true;
+      }
+      if (!isValidSoloResult(body)) return json(res, 400, { error: "bad_result" }), true;
+      const now = Date.now();
+      if (now - (lastSolo.get(user.id) ?? 0) < SOLO_MIN_INTERVAL_MS) return json(res, 429, { error: "too_soon" }), true;
+      lastSolo.set(user.id, now);
+      let award: Award | null = null;
+      await accounts.progress.update([user.id], (current) => {
+        const settled = settleSolo(current[user.id], body, now);
+        award = settled.award;
+        return { [user.id]: settled.progress };
+      });
+      return json(res, 200, { award }), true;
+    }
+    if (req.method === "GET" && url.pathname === "/api/leaderboard") {
+      const mode = url.searchParams.get("mode");
+      const by = url.searchParams.get("by") === "rank" ? "rank" : "wins";
+      const limit = Math.min(LEADERBOARD_MAX, Math.max(1, Number(url.searchParams.get("limit")) || 50));
+      if (!RANKED_MODES.includes(mode as ModeId)) return json(res, 400, { error: "bad_mode" }), true;
+      return json(res, 200, { rows: await accounts.progress.leaderboard(mode as ModeId, by, limit) }), true;
+    }
+    json(res, 404, { error: "not_found" });
+    return true;
   }
 
   function readBody(req: IncomingMessage): Promise<string> {
@@ -161,6 +287,13 @@ export function startRoomServer(options: RoomServerOptions) {
   const server = createServer(async (req, res) => {
     cors(req, res);
     if (req.method === "OPTIONS") return void res.writeHead(204).end();
+    try {
+      if (await handleAccountRoute(req, res)) return;
+    } catch (error) {
+      log(`${req.method} ${req.url} failed: ${String(error)}`);
+      if (!res.headersSent) json(res, 500, { error: "server_error" });
+      return;
+    }
     if (req.method === "GET" && req.url === "/health") return json(res, 200, { ok: true, rooms: rooms.size });
     if (req.method === "POST" && req.url === "/rooms") {
       if (!originAllowed(req.headers.origin)) return json(res, 403, { error: "origin" });
@@ -189,7 +322,13 @@ export function startRoomServer(options: RoomServerOptions) {
       }
       if (!isQueueId(queue)) return json(res, 400, { error: "bad_queue" });
       if (rooms.size >= MAX_ROOMS) return json(res, 503, { error: "busy" });
-      const code = findOrOpenPublic(queue);
+      let mmr: number | null = null;
+      if (queues[queue].ranked) {
+        const user = accounts ? await accounts.userFromToken(bearer(req)) : null;
+        if (!user || user.isAnonymous) return json(res, 401, { error: "sign_in_required" });
+        mmr = (await accounts!.progress.get(user.id)).modes[queues[queue].mode]?.ranked?.mmr ?? 1000;
+      }
+      const code = findOrOpenPublic(queue, mmr);
       return code ? json(res, 200, { code }) : json(res, 503, { error: "busy" });
     }
     json(res, 404, { error: "not_found" });
@@ -237,24 +376,42 @@ export function startRoomServer(options: RoomServerOptions) {
 
       const message = parseClientMessage(data.toString());
       if (!message) return;
+      // Handled in order: the hello may wait on an account lookup, and the actions after it must wait too.
+      pending = pending.then(() => onMessage(message)).catch((error) => log(`message failed: ${String(error)}`));
+    });
 
+    let pending: Promise<void> = Promise.resolve();
+    const reject = (error: "sign_in_required" | "account_in_use") => {
+      ws.send(JSON.stringify({ type: "error", error } satisfies ServerMessage));
+      ws.close(1008, error);
+    };
+
+    async function onMessage(message: NonNullable<ReturnType<typeof parseClientMessage>>) {
       if (message.type === "hello") {
         if (playerId) return; // one hello per connection
-        const known = room.secrets.get(message.playerId);
+        const user = accounts ? await accounts.userFromToken(message.token).catch(() => null) : null;
+        if (ws.readyState !== ws.OPEN) return;
+        if (room!.host.room.ranked) {
+          if (!user || user.isAnonymous) return reject("sign_in_required");
+          const elsewhere = [...room!.users].some(([seat, u]) => u.id === user.id && seat !== message.playerId);
+          if (elsewhere) return reject("account_in_use");
+        }
+        const known = room!.secrets.get(message.playerId);
         if (known && !sameSecret(known, message.secret)) return ws.close(CLOSE_BAD_SECRET, "bad_secret");
-        room.secrets.set(message.playerId, message.secret);
+        room!.secrets.set(message.playerId, message.secret);
+        if (user) room!.users.set(message.playerId, user);
         playerId = message.playerId;
-        const previous = room.sockets.get(playerId);
+        const previous = room!.sockets.get(playerId);
         if (previous && previous !== ws) previous.close(CLOSE_REPLACED, "replaced");
-        room.sockets.set(playerId, ws);
-        if (room.idleTimer) clearTimeout(room.idleTimer);
-        room.host.handle(playerId, { type: "join", name: message.name });
+        room!.sockets.set(playerId, ws);
+        if (room!.idleTimer) clearTimeout(room!.idleTimer);
+        room!.host.handle(playerId, { type: "join", name: message.name });
         return;
       }
 
       if (!playerId) return; // actions only after hello
-      room.host.handle(playerId, message.action);
-    });
+      room!.host.handle(playerId, message.action);
+    }
 
     ws.on("close", (closeCode, reason) => {
       clearInterval(heartbeat);
