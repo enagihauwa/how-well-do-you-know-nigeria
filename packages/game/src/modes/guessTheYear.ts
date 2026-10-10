@@ -34,6 +34,7 @@ export const guessTheYearMode = createRoundMode({
       }),
     );
   },
+  perfect: { stat: "exact", test: (item: YearItem, year: number) => year === item.year },
   // Usually close, sometimes spot on, sometimes way off: between 0 and 12 years out, either side.
   botAnswer(item: YearItem, rng) {
     const off = Math.round(rng() ** 2 * 12) * (rng() < 0.5 ? -1 : 1);

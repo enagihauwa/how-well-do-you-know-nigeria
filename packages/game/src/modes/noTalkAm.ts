@@ -1,10 +1,12 @@
 import { shuffle } from "../quiz/selectQuestions";
+import { bumpStat, type StatsTable } from "./stats";
 import { matchesAnswer } from "./textMatch";
 import type { GameMode, ModeContext, PlayerId, TeamId } from "./types";
 
 /**
  * No Talk Am: a Taboo-style game. Each round, every team has one describer who sees a word and
- * the words they must not say. They describe it over team voice (or out loud in Same Room mode)
+ * the words they must not say. They describe it out loud (chat is muted for them, so for now
+ * this needs everyone in the same room; team voice chat is planned for remote play)
  * and teammates type guesses. All teams play their rounds at the same time. The describer
  * rotates every round. Avoiding the banned words is on the honour system.
  */
@@ -49,6 +51,8 @@ export interface NoTalkAmState {
   roundWon: Record<TeamId, Won[]>;
   teamScores: Record<TeamId, number>;
   playerScores: Record<PlayerId, number>;
+  /** Across the whole match (unlike `roundWon`, which resets every round). */
+  stats: StatsTable;
 }
 
 export type NoTalkAmRole = "describer" | "guesser" | "spectator";
@@ -162,6 +166,7 @@ export const noTalkAmMode: GameMode<
       roundWon: {},
       teamScores: Object.fromEntries(Object.keys(order).map((id) => [id, 0])),
       playerScores: Object.fromEntries(ctx.players.map((p) => [p.id, 0])),
+      stats: {},
     };
     return startRound(state, 0, ctx);
   },
@@ -192,8 +197,11 @@ export const noTalkAmMode: GameMode<
       const { card, deck, deckPos } = draw(state, ctx);
       let playerScores = addPoints(state.playerScores, playerId);
       if (describer) playerScores = addPoints(playerScores, describer);
+      let stats = bumpStat(state.stats, playerId, "cardsGuessed");
+      if (describer) stats = bumpStat(stats, describer, "cardsDescribed");
       return {
         ...state,
+        stats,
         deck,
         deckPos,
         cards: { ...state.cards, [teamId]: card },
@@ -253,5 +261,5 @@ export const noTalkAmMode: GameMode<
 
   isFinished: (state) => state.phase === "finished",
 
-  summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores }),
+  summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores, stats: state.stats }),
 };

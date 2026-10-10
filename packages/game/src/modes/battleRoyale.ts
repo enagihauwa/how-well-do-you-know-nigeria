@@ -278,6 +278,10 @@ export const battleRoyaleMode: GameMode<
     const playerScores = Object.fromEntries(Object.keys(s.lives).map((id) => [id, s.correct[id] * POINTS_PER_CORRECT]));
     const teamScores: Record<TeamId, number> = {};
     for (const [id, team] of Object.entries(s.teamOf)) teamScores[team] = (teamScores[team] ?? 0) + playerScores[id];
-    return { teamScores, playerScores, placements: order };
+    // A player faced every question up to the one they went out on (or every question asked).
+    const stats = Object.fromEntries(
+      Object.keys(s.lives).map((id) => [id, { answered: (s.outAt[id] ?? s.index) + 1, correct: s.correct[id] }]),
+    );
+    return { teamScores, playerScores, placements: order, stats };
   },
 };

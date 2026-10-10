@@ -3,6 +3,7 @@ import { selectQuestions } from "../quiz/selectQuestions";
 import type { CategoryId, Question } from "../types";
 import { botOption, botThinkMs, isBotId } from "./bots";
 import { questionsInCategory } from "./contentIndex";
+import { bumpStat, type StatsTable } from "./stats";
 import type { GameMode, ModeContext, PlayerId, TeamId } from "./types";
 
 /**
@@ -45,6 +46,7 @@ export interface TriviaState {
   teamLocks: Record<TeamId, Lock>;
   teamScores: Record<TeamId, number>;
   playerScores: Record<PlayerId, number>;
+  stats: StatsTable;
 }
 
 export interface TriviaReveal {
@@ -107,12 +109,16 @@ function reveal(state: TriviaState, ctx: ModeContext): TriviaState {
   const answer = state.questions[state.index].answer;
   const teamScores = { ...state.teamScores };
   const playerScores = { ...state.playerScores };
+  let stats = state.stats;
   for (const lock of Object.values(locked(state))) {
+    // With team lock, the teammate who locked the pick gets the credit for it.
+    stats = bumpStat(stats, lock.by, "answered");
     if (lock.option !== answer) continue;
+    stats = bumpStat(stats, lock.by, "correct");
     teamScores[lock.teamId] = (teamScores[lock.teamId] ?? 0) + POINTS_PER_CORRECT;
     playerScores[lock.by] = (playerScores[lock.by] ?? 0) + POINTS_PER_CORRECT;
   }
-  return { ...state, phase: "reveal", endsAt: ctx.now + REVEAL_MS, teamScores, playerScores };
+  return { ...state, phase: "reveal", endsAt: ctx.now + REVEAL_MS, teamScores, playerScores, stats };
 }
 
 function advance(state: TriviaState, ctx: ModeContext): TriviaState {
@@ -148,6 +154,7 @@ export const triviaMode: GameMode<TriviaConfig, TriviaContent, TriviaState, Triv
       teamLocks: {},
       teamScores: Object.fromEntries(ctx.teamIds.map((id) => [id, 0])),
       playerScores: Object.fromEntries(ctx.players.map((p) => [p.id, 0])),
+      stats: {},
     };
   },
 
@@ -263,5 +270,5 @@ export const triviaMode: GameMode<TriviaConfig, TriviaContent, TriviaState, Triv
 
   isFinished: (state) => state.phase === "finished",
 
-  summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores }),
+  summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores, stats: state.stats }),
 };

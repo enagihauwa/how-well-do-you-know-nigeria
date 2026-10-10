@@ -149,7 +149,12 @@ describe("starting", () => {
   it("explains why it cannot start yet", () => {
     const solo = apply(createRoom("ABCDE"), ["ada", { type: "join", name: "Ada" }]);
     expect(roomView(solo, "ada", env).startProblem).toBe("need_players");
-    const noTeam = apply(solo, ["bayo", { type: "join", name: "Bayo" }]);
+    // Newcomers are seated on the smallest team, so two people can start straight away…
+    const two = apply(solo, ["bayo", { type: "join", name: "Bayo" }]);
+    expect(two.players.map((p) => p.teamId)).toEqual(["t0", "t1"]);
+    expect(roomView(two, "ada", env).startProblem).toBeNull();
+    // …unless someone steps off their team.
+    const noTeam = apply(two, ["bayo", { type: "set_team", teamId: null }]);
     expect(roomView(noTeam, "ada", env).startProblem).toBe("need_team");
     expect(roomView(lobby(), "ada", env).startProblem).toBeNull();
     const nta = apply(lobby(), ["ada", { type: "set_mode", mode: "no-talk-am" }]);

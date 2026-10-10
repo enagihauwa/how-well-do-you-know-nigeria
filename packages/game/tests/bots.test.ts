@@ -161,8 +161,9 @@ describe("bots in a private room", () => {
     expect(roomReduce(s, "bayo", { type: "add_bot" }, env).error).toBe("not_host");
     s = roomReduce(s, "ada", { type: "add_bot" }, env).state;
     s = roomReduce(s, "ada", { type: "add_bot" }, env).state;
+    // Ada (t0) and Bayo (t1, seated on joining) leave the teams level, so the bots split too.
     const bots = s.players.filter((p) => p.bot);
-    expect(bots.map((b) => b.teamId)).toEqual(["t1", "t0"]);
+    expect(bots.map((b) => b.teamId)).toEqual(["t0", "t1"]);
     expect(new Set(s.players.map((p) => p.name)).size).toBe(s.players.length);
 
     s = roomReduce(s, "ada", { type: "leave" }, env).state;

@@ -42,9 +42,14 @@ const expected = (mine: number, theirs: number) => 1 / (1 + 10 ** ((theirs - min
 
 /**
  * New ratings after a match. `order` is the finishing order, best first; each entry is one
- * player, or the members of one squad. Players missing from `ratings` start at the default.
+ * player, or the members of one squad or team. Players missing from `ratings` start at the
+ * default. `ranks` (same length as `order`) marks ties: entries with the same rank drew.
  */
-export function rateMatch(order: string[][], ratings: Record<string, Rating>): Record<string, Rating> {
+export function rateMatch(
+  order: string[][],
+  ratings: Record<string, Rating>,
+  ranks: number[] = order.map((_, i) => i),
+): Record<string, Rating> {
   const get = (id: string) => ratings[id] ?? { rating: STARTING_RATING, games: 0 };
   const units = order.map((members) => ({
     members,
@@ -58,7 +63,7 @@ export function rateMatch(order: string[][], ratings: Record<string, Rating>): R
     let delta = 0;
     units.forEach((other, otherPlace) => {
       if (other === unit) return;
-      const score = place < otherPlace ? 1 : place > otherPlace ? 0 : 0.5;
+      const score = ranks[place] < ranks[otherPlace] ? 1 : ranks[place] > ranks[otherPlace] ? 0 : 0.5;
       delta += score - expected(unit.rating, other.rating);
     });
     for (const id of unit.members) {

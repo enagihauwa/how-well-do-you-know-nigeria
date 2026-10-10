@@ -42,6 +42,7 @@ export const sortAmMode = createRoundMode({
         answer.filter((v, i) => v === item.order[i]).length * POINTS_PER_PLACE,
       ]),
     ),
+  perfect: { stat: "perfectSorts", test: (item: SortItem, answer: string[]) => answer.every((v, i) => v === item.order[i]) },
   // The right order with 0–2 neighbouring items swapped: often perfect, often one or two out.
   botAnswer(item: SortItem, rng) {
     const answer = [...item.order];

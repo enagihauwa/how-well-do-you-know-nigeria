@@ -23,11 +23,26 @@ export interface ModeContext {
   rng: () => number;
 }
 
+/** What one player did in a match, for the results screen and badges. Each mode fills what applies. */
+export interface PlayerMatchStats {
+  /** Questions (or rounds) this player answered, and how many were right. */
+  answered?: number;
+  correct?: number;
+  /** Guess the Year: years guessed exactly. */
+  exact?: number;
+  /** Sort Am: rounds sorted perfectly. */
+  perfectSorts?: number;
+  /** No Talk Am: words this player guessed, and words their team got while they described. */
+  cardsGuessed?: number;
+  cardsDescribed?: number;
+}
+
 export interface MatchSummary {
   teamScores: Record<TeamId, number>;
   playerScores: Record<PlayerId, number>;
   /** Best first, for modes where finishing position is the result (battle royale). */
   placements?: PlayerId[];
+  stats?: Record<PlayerId, PlayerMatchStats>;
 }
 
 /** Why a match cannot start, for the lobby to show. */

@@ -38,6 +38,8 @@ export type QuickChat = (typeof QUICK_CHAT)[number];
 /** Quick Play rooms: filled by the matchmaker, no host, start themselves. */
 export interface PublicRoomOptions {
   mode: ModeId;
+  /** Ranked Quick Play: the result moves rank (RR). Never filled with bots. */
+  ranked?: boolean;
   minPlayers: number;
   maxPlayers: number;
   /** Once `minPlayers` are in, the match starts after this long (or at once when full). */
@@ -90,6 +92,8 @@ export type RoomStatus = "lobby" | "playing" | "finished";
 export interface RoomState {
   code: string;
   kind: "private" | "public";
+  /** Ranked Quick Play (public rooms only). Absent in rooms saved before ranked play existed. */
+  ranked?: boolean;
   maxPlayers: number;
   /** Public rooms only. `startsAt` is set once enough players are in. */
   autoStart: {
@@ -161,6 +165,7 @@ export interface RoomResult {
 export interface RoomView {
   code: string;
   kind: "private" | "public";
+  ranked: boolean;
   /** Public rooms: when the match starts by itself, on the room's clock. */
   startsAt: number | null;
   /** Public rooms: when bots will fill the empty places, if the room is still short. */
@@ -205,9 +210,12 @@ export function createPublicRoom(code: string, options: PublicRoomOptions): Room
   const base = createRoom(code);
   const configs = { ...base.settings.configs };
   if (options.mode === "battle-royale") configs["battle-royale"] = { ...configs["battle-royale"], squads: options.squadSize !== null };
+  // Quick Play trivia is every player for themselves: one pick each, scored per player.
+  if (options.mode === "trivia") configs.trivia = { ...configs.trivia, answerRule: "individual" };
   return {
     ...base,
     kind: "public",
+    ranked: !!options.ranked,
     maxPlayers: options.maxPlayers,
     teamIds: ["t0"],
     settings: { ...base.settings, mode: options.mode, configs },
@@ -380,7 +388,8 @@ export function roomReduce(state: RoomState, from: PlayerId, action: ClientActio
     if (state.status === "finished" && state.kind === "public") return fail("already_started");
     if (state.players.length >= state.maxPlayers) return fail("room_full");
     // Public rooms have no team picking: everyone waits in one group; squads are dealt at the start.
-    const teamId = state.kind === "public" ? "t0" : null;
+    // Private rooms seat newcomers on the smallest team; they can still switch in the lobby.
+    const teamId = state.kind === "public" ? "t0" : emptiestTeam(state);
     const player: RoomPlayer = { id: from, name, teamId, connected: true, disconnectedAt: null };
     let next: RoomState = { ...state, players: [...state.players, player] };
     if (next.autoStart && next.autoStart.openedAt === null) next = { ...next, autoStart: { ...next.autoStart, openedAt: env.now } };
@@ -557,6 +566,7 @@ function sharedView(state: RoomState, env: RoomEnv): SharedView {
     base: {
       code: state.code,
       kind: state.kind,
+      ranked: !!state.ranked,
       startsAt: state.autoStart?.startsAt ?? null,
       botsAt: botsDueAt(state),
       hostId: state.hostId,

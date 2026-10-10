@@ -1,5 +1,6 @@
 import { shuffle } from "../quiz/selectQuestions";
 import { botThinkMs } from "./bots";
+import { bumpStat, type StatsTable } from "./stats";
 import type { GameMode, ModeContext, ModeId, PlayerId, TeamId } from "./types";
 
 /**
@@ -24,6 +25,8 @@ export interface RoundModeSpec<Item, Public, Answer, Solution> {
   score(item: Item, answers: Record<PlayerId, Answer>): Record<PlayerId, number>;
   /** Optional: what a bot answers. A mode with this can be played with bots. */
   botAnswer?(item: Item, rng: () => number): Answer;
+  /** Optional: a flawless answer (an exact year, a perfect sort), counted in that stat. */
+  perfect?: { stat: "exact" | "perfectSorts"; test(item: Item, answer: Answer): boolean };
 }
 
 export interface RoundModeConfig {
@@ -45,6 +48,7 @@ export interface RoundModeState<Item, Answer> {
   lastPoints: Record<PlayerId, number>;
   teamScores: Record<TeamId, number>;
   playerScores: Record<PlayerId, number>;
+  stats: StatsTable;
 }
 
 export interface RoundResult<Answer> {
@@ -87,16 +91,23 @@ export function createRoundMode<Id extends ModeId, Item, Public, Answer, Solutio
     ctx.players.length > 0 && ctx.players.every((p) => p.id in state.answers);
 
   const reveal = (state: State, ctx: ModeContext): State => {
-    const points = spec.score(state.items[state.index], state.answers);
+    const item = state.items[state.index];
+    const points = spec.score(item, state.answers);
     const teamScores = { ...state.teamScores };
     const playerScores = { ...state.playerScores };
+    let stats = state.stats;
+    for (const [playerId, answer] of Object.entries(state.answers)) {
+      stats = bumpStat(stats, playerId, "answered");
+      if (points[playerId]) stats = bumpStat(stats, playerId, "correct");
+      if (spec.perfect?.test(item, answer)) stats = bumpStat(stats, playerId, spec.perfect.stat);
+    }
     for (const [playerId, pts] of Object.entries(points)) {
       const teamId = state.answerTeams[playerId];
       if (!pts || !teamId) continue;
       playerScores[playerId] = (playerScores[playerId] ?? 0) + pts;
       teamScores[teamId] = (teamScores[teamId] ?? 0) + pts;
     }
-    return { ...state, phase: "reveal", endsAt: ctx.now + spec.revealMs, lastPoints: points, teamScores, playerScores };
+    return { ...state, phase: "reveal", endsAt: ctx.now + spec.revealMs, lastPoints: points, teamScores, playerScores, stats };
   };
 
   const advance = (state: State, ctx: ModeContext): State => {
@@ -132,6 +143,7 @@ export function createRoundMode<Id extends ModeId, Item, Public, Answer, Solutio
         lastPoints: {},
         teamScores: Object.fromEntries(ctx.teamIds.map((id) => [id, 0])),
         playerScores: Object.fromEntries(ctx.players.map((p) => [p.id, 0])),
+        stats: {},
       };
     },
 
@@ -201,6 +213,6 @@ export function createRoundMode<Id extends ModeId, Item, Public, Answer, Solutio
 
     isFinished: (state) => state.phase === "finished",
 
-    summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores }),
+    summary: (state) => ({ teamScores: state.teamScores, playerScores: state.playerScores, stats: state.stats }),
   };
 }
