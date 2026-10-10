@@ -5,36 +5,28 @@
   "engines": {
     "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "npm run dev -w @naija/web",
+    "dev:server": "npm run dev -w @naija/server",
+    "dev:all": "node scripts/dev-all.mjs",
+    "build": "npm run build -w @naija/web",
+    "start": "npm run start -w @naija/web",
+    "server": "npm run start -w @naija/server",
     "lint": "eslint",
+    "typecheck": "npm run typecheck --workspaces",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench": "tsx --tsconfig tsconfig.json bench/engine.bench.ts",
-    "server": "tsx --tsconfig tsconfig.json server/index.ts",
-    "dev:server": "tsx watch --tsconfig tsconfig.json server/index.ts",
-    "load": "tsx --tsconfig tsconfig.json bench/load.mts",
-    "dev:all": "node scripts/dev-all.mjs"
-  },
-  "dependencies": {
-    "next": "16.4.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "ws": "^8.18.0"
+    "bench": "npm run bench -w @naija/game",
+    "load": "npm run load -w @naija/server --"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@types/ws": "^8.5.13",
-    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
-    "tailwindcss": "^4",
-    "tinybench": "^2.9.0",
     "tsx": "^4.19.2",
     "typescript": "^5",
     "vitest": "^5.0.3"

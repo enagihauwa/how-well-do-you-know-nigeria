@@ -27,8 +27,8 @@ A Nigerian trivia party game. Play solo, play with friends in a private room, or
 Public rooms only allow preset quick-chat phrases ("Oya! 🔥", "Well played"…), never free text, because players are strangers. Private rooms have free-text chat, to everyone or to your team only.
 
 **Also:**
-- **Settings** (top-right button, in a bottom sheet): **Look** follows the phone's light/dark setting by default, or can be set to Light or Dark; **Language** is English or Pidgin. All text lives in `src/lib/i18n/copy.ts`.
-- **Design:** green-led and quiet. Colours are tokens in `src/app/globals.css` (checked for WCAG AA contrast in both themes by `tests/contrast.test.ts`); headings use Bricolage Grotesque and body text Figtree. Choices that are not needed all the time (settings, invite, game picker, chat) open in bottom sheets.
+- **Settings** (top-right button, in a bottom sheet): **Look** follows the phone's light/dark setting by default, or can be set to Light or Dark; **Language** is English or Pidgin. All text lives in `apps/web/src/lib/i18n/copy.ts`.
+- **Design:** green-led and quiet. Colours are tokens in `apps/web/src/app/globals.css` (checked for WCAG AA contrast in both themes by `apps/web/tests/contrast.test.ts`); headings use Bricolage Grotesque and body text Figtree. Choices that are not needed all the time (settings, invite, game picker, chat) open in bottom sheets.
 - **Reconnecting:** a phone that drops off the network or reloads gets its seat back (held for 60 seconds). A host who drops stays host for 10 seconds before the role passes on.
 - **Accessibility:** real buttons and form controls, visible keyboard focus, keyboard shortcuts in solo (`A`–`D` or `1`–`4`), feedback that doesn't rely on colour alone, and decorative animation off for users who prefer reduced motion.
 - **Ad slots** (off by default) on calm screens only: home, results and between rounds, never during a question.
@@ -79,9 +79,9 @@ Other devices on your Wi-Fi can't reach `localhost`; to test on a phone, deploy 
 | `npm run dev` | Development server for the app (multiplayer in test mode) |
 | `npm run server` | Room server (WebSocket + HTTP) |
 | `npm run dev:server` | Room server, restarting on changes |
-| `npm test` | All tests once (Vitest), including the room server's real-socket tests |
+| `npm test` | All tests in every package once (Vitest), including the room server's real-socket tests |
 | `npm run lint` | ESLint |
-| `npx tsc --noEmit` | Type-check |
+| `npm run typecheck` | Type-check every package |
 | `npm run build` / `npm start` | Production build of the app / serve it |
 | `npm run bench` | Engine micro-benchmarks |
 | `npm run load -- 100` | Load test: 100 rooms × 8 players against a running room server |
@@ -111,45 +111,43 @@ phone ── WebSocket ──► room server ──► RoomHost (one per room) �
                           └── POST /rooms, POST /quickplay, GET /health
 ```
 
-- **The rules are pure TypeScript** in `src/lib/modes/` (one file per game) and `src/lib/room/engine.ts` (lobby, teams, host, presence, chat, public rooms). No React, no browser APIs, no clock or randomness of their own, so the same code runs in the server, the local test mode and the tests.
-- **`RoomHost`** (`src/lib/room/host.ts`) runs one room: applies actions, runs the deadline timer, and sends each player *their own* view only when it changed. Secrets (trivia answers, the No Talk Am word) are never in another player's view.
-- **The server** (`server/roomServer.ts`) validates every message (`src/lib/room/validate.ts`), ties each seat to a secret so nobody can take another player's place, drops dead connections, rate-limits, and matches Quick Play players into public rooms.
-- **The phone** (`src/lib/room/wsTransport.ts`) reconnects with backoff, and at once when the app comes back to the front or the network returns. Timers are drawn from the server's deadline with a CSS animation, so the timer costs no JavaScript per frame.
+- **The rules are pure TypeScript** in `packages/game/src/modes/` (one file per game) and `packages/game/src/room/engine.ts` (lobby, teams, host, presence, chat, public rooms). No React, no browser APIs, no clock or randomness of their own, so the same code runs in the server, the local test mode and the tests.
+- **`RoomHost`** (`packages/game/src/room/host.ts`) runs one room: applies actions, runs the deadline timer, and sends each player *their own* view only when it changed. Secrets (trivia answers, the No Talk Am word) are never in another player's view.
+- **The server** (`apps/server/src/roomServer.ts`) validates every message (`packages/game/src/room/validate.ts`), ties each seat to a secret so nobody can take another player's place, drops dead connections, rate-limits, and matches Quick Play players into public rooms.
+- **The phone** (`apps/web/src/lib/room/wsTransport.ts`) reconnects with backoff, and at once when the app comes back to the front or the network returns. Timers are drawn from the server's deadline with a CSS animation, so the timer costs no JavaScript per frame.
 
 **Capacity** (measured with `npm run load` on an Apple-silicon Mac, load generator on the same machine): one room-server process handled 1,000 concurrent players at 53% of one core with a 1.5 ms 99th-percentile round trip, and up to 4,000 before saturating one core; 8,000 failed. Plan on roughly 1,000–1,500 players per process on a typical cloud core, and scale out by running more processes with rooms spread across them.
 
-**Rankings:** `src/lib/ranking/rating.ts` rates players from finishing order (Elo across the field; squads share their squad's change) and maps ratings to tiers: JJC, Learner, Sharp, Oga, Chairman, Odogwu. It is not wired up yet: ratings need accounts and a database to be stored.
+**Rankings:** `packages/game/src/ranking/rating.ts` rates players from finishing order (Elo across the field; squads share their squad's change) and maps ratings to tiers: JJC, Learner, Sharp, Oga, Chairman, Odogwu. It is not wired up yet: ratings need accounts and a database to be stored.
 
 ## Tests
 
-Logic, data, the room engine, every game mode, ratings and the room server (over real WebSockets) are covered; the React components are not. Main files:
+Logic, data, the room engine, every game mode, ratings and the room server (over real WebSockets) are covered; the React components are not. Each package keeps its tests in its own `tests/` folder. Main files:
 
-- `tests/quizReducer.test.ts`, `selectQuestions.test.ts`, `scoring.test.ts`, `data.test.ts`: solo game and question bank.
-- `tests/triviaMode.test.ts`, `noTalkAmMode.test.ts`, `roundModes.test.ts`, `battleRoyale.test.ts`: each game mode, including that secrets never leak.
-- `tests/roomEngine.test.ts`: lobby, teams, host handover, seats, chat, Quick Play rooms.
-- `tests/roomServer.test.ts`: the real server with real sockets: a match, chat privacy, seat ownership, malformed input, matchmaking.
-- `tests/rating.test.ts`, `textMatch.test.ts`, `theme.test.ts`, `contrast.test.ts`.
+- `packages/game/tests/`: `selectQuestions`, `scoring`, `data` (question bank), `triviaMode`, `noTalkAmMode`, `roundModes`, `battleRoyale` (each game mode, including that secrets never leak), `bots`, `roomEngine` (lobby, teams, host handover, seats, chat, Quick Play rooms), `rating`, `textMatch`.
+- `apps/server/tests/roomServer.test.ts`: the real server with real sockets: a match, chat privacy, seat ownership, malformed input, matchmaking.
+- `apps/web/tests/`: `quizReducer` (solo game), `theme`, `contrast`.
 
 ## Project structure
 
 ```
-server/                 Room server (Node, ws): index.ts entry point, roomServer.ts
-bench/                  Engine benchmark and load test
-src/
-  app/                  Next.js routes: / (solo), /room (create, join, Quick Play), /room/[code]
-  components/
-    screens/, quiz/     Solo game screens
-    room/               Lobby, public lobby, one screen per game, results, chat
-    ui/                 Button, BottomSheet, AdSlot, toggles, flag
-  data/                 Categories, questions, No Talk Am cards, years, Sort Am items
-  lib/
-    modes/              Game modes and the mode contract (pure)
-    room/               Engine, host, protocol, validation, transports, hooks
-    ranking/            Ratings and tiers (pure)
-    i18n/               English and Pidgin copy
-    quiz/               Solo reducer, scoring, selection, timers
-tests/                  Vitest tests
+packages/game/          @naija/game: the game itself, shared by the app and the server (pure TS)
+  src/modes/            Game modes, bots and the mode contract
+  src/room/             Engine, RoomHost, protocol, validation, room codes, Quick Play queues
+  src/data/             Categories, questions, No Talk Am cards, years, Sort Am items
+  src/quiz/, ranking/   Scoring, question selection, ratings and tiers
+  bench/                Engine micro-benchmarks
+apps/server/            @naija/server: room server (Node, ws): src/index.ts entry point, src/roomServer.ts
+  bench/                Load test
+apps/web/               @naija/web: the Next.js app
+  src/app/              Routes: / (solo), /room (create, join, Quick Play), /room/[code]
+  src/components/       Solo screens, room lobby and game screens, chat, UI kit
+  src/lib/room/         Browser side of rooms: transports (WebSocket, local test mode), useRoom
+  src/lib/i18n/, quiz/  English and Pidgin copy; solo reducer and timers
+scripts/dev-all.mjs     Runs the app and the room server together
 ```
+
+npm workspaces link the three packages. The app and the server import shared code as `@naija/game/...` (for example `@naija/game/room/engine`), straight from TypeScript source with no build step: Next compiles workspace packages itself, and the server runs on `tsx`.
 
 ## Current limitations
 

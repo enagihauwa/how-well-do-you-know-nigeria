@@ -1,0 +1,26 @@
+{
+  "name": "@naija/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Next.js app: solo quiz, room lobby and match screens.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@naija/game": "*",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "tailwindcss": "^4"
+  }
+}

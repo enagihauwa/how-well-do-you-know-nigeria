@@ -29,7 +29,7 @@ Whoever owns the Railway account does this.
    - **From GitHub:** Railway needs access to the repository, so the repository owner (or someone with admin access) approves the Railway GitHub app; or
    - **From a computer:** with the [Railway CLI](https://docs.railway.com/guides/cli), run `railway up` in the project folder. This uploads the code directly and needs no GitHub access.
 2. In the service's **Settings**:
-   - **Start command:** `npm run server`
+   - **Start command:** `npm run server` (leave Root Directory empty: the server needs the whole monorepo, since it uses the shared `packages/game`)
    - **Replicas: 1.** Rooms live in the server's memory, so a second copy would split players into rooms that can't see each other.
    - **Networking → Generate domain** to get a public address, e.g. `https://naija-rooms.up.railway.app`.
 3. In the service's **Variables**:
@@ -43,7 +43,8 @@ Someone with access to the Vercel project's settings (the owner) does this.
 
 1. Vercel → the project → **Settings → Environment Variables**.
 2. Add `NEXT_PUBLIC_ROOM_SERVER_URL` = the Railway address from step 1, e.g. `https://naija-rooms.up.railway.app`. Apply it to **Production** (and **Preview** if preview deployments should use it).
-3. This value is built into the website, so it only takes effect on the **next** deployment. Step 3 triggers one; to apply it without new code, use **Deployments → Redeploy** on the latest one.
+3. **Settings → Build and Deployment → Root Directory:** `apps/web`. The repository is a monorepo; Vercel installs the whole workspace and builds just the website from there.
+4. This value is built into the website, so it only takes effect on the **next** deployment. Step 3 triggers one; to apply it without new code, use **Deployments → Redeploy** on the latest one.
 
 ### 3. Merge the code
 
@@ -58,7 +59,7 @@ Merge the pull request into `main`. Vercel deploys it automatically, now with th
 
 ## Alternative: everything on Railway
 
-The website can also run on Railway as a second service from the same repository (build `npm run build`, start `npm start`, and set `NEXT_PUBLIC_ROOM_SERVER_URL` on that service). This keeps both parts in one account, but the site gets a new web address, and the Vercel deployment keeps serving the old version until it is removed. Only worth it if the Vercel project will not be used any more.
+The website can also run on Railway as a second service from the same repository (Root Directory empty, build `npm run build`, start `npm start`, and set `NEXT_PUBLIC_ROOM_SERVER_URL` on that service). This keeps both parts in one account, but the site gets a new web address, and the Vercel deployment keeps serving the old version until it is removed. Only worth it if the Vercel project will not be used any more.
 
 ## Costs and limits
 

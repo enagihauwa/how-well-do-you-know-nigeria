@@ -1,12 +1,8 @@
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+// `npm test` at the root runs every workspace's tests in one go; each has its own config.
 export default defineConfig({
-  resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
-  },
   test: {
-    environment: "node",
-    include: ["tests/**/*.test.ts"],
+    projects: ["packages/game", "apps/server", "apps/web"],
   },
 });

@@ -1,0 +1,21 @@
+{
+  "name": "@naija/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The real-time room server (HTTP + WebSocket). Runs the shared room engine from @naija/game.",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "load": "tsx bench/load.mts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@naija/game": "*",
+    "tsx": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}

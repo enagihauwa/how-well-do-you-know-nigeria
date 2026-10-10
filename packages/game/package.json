@@ -1,0 +1,19 @@
+{
+  "name": "@naija/game",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The game itself, shared by the web app and the room server: room engine, game modes, protocol and content. Pure TypeScript, no React or DOM.",
+  "exports": {
+    "./modes": "./src/modes/index.ts",
+    "./data/questions": "./src/data/questions/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "bench": "tsx bench/engine.bench.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tinybench": "^2.9.0"
+  }
+}
