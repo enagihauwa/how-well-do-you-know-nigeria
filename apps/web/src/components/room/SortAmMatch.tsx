@@ -50,6 +50,7 @@ export function SortAmMatch({ room, match, clockOffset, onAnswer, onNext }: Sort
         title={t.modes["sort-am"].name}
         progress={t.quiz.questionOf(match.index + 1, match.total)}
         teamScores={match.teamScores}
+        playerScores={match.playerScores}
         timer={answering ? { endsAt: match.endsAt, totalSeconds: match.answerMs / 1000 } : null}
         autoNextAt={answering ? undefined : match.endsAt}
       />
@@ -129,7 +130,7 @@ export function SortAmMatch({ room, match, clockOffset, onAnswer, onNext }: Sort
         <section className="mt-6">
           <RoundResults room={room} results={match.results} />
           <div className="mt-5">
-            <HostNext isHost={room.hostId === room.you} onNext={onNext} />
+            <HostNext isHost={room.hostId === room.you} hostless={room.hostId === null} onNext={onNext} />
           </div>
         </section>
       )}

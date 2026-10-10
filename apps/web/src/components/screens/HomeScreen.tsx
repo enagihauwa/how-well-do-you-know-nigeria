@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MODE_IDS } from "@naija/game/modes";
+import { accountsEnabled } from "@/lib/account/account";
+import { useAccount } from "@/lib/account/useAccount";
 import { useCopy } from "@/lib/i18n/useCopy";
 import { isRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from "@naija/game/room/code";
 import { Button, buttonClasses } from "@/components/ui/Button";
@@ -17,6 +19,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onPlay }: HomeScreenProps) {
   const t = useCopy();
   const router = useRouter();
+  const { progress } = useAccount();
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState(false);
 
@@ -95,16 +98,27 @@ export function HomeScreen({ onPlay }: HomeScreenProps) {
       </form>
 
       <section className="anim-enter mt-6" style={{ "--i": 3 } as React.CSSProperties}>
-        <h2 className="text-sm font-semibold text-muted">{t.home.games}</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold text-muted">{t.home.games}</h2>
+          {accountsEnabled && (
+            <Link href="/leaderboard" className="text-sm font-semibold text-brand-ink underline underline-offset-4">
+              {t.leaderboard.open}
+            </Link>
+          )}
+        </div>
         <ul className="mt-2 grid grid-cols-2 gap-2">
           {[...MODE_IDS, "battle-royale" as const].map((id) => (
             <li key={id}>
               {/* Who Go Remain? is the public quick-play mode, so it lands on /room's quick play. */}
               <Link
                 href={id === "battle-royale" ? "/room" : `/room?mode=${id}`}
-                className="block rounded-xl border border-transparent bg-surface px-3 py-3 text-[15px] font-medium transition hover:border-brand active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
+                className="flex items-baseline justify-between gap-2 rounded-xl border border-transparent bg-surface px-3 py-3 text-[15px] font-medium transition hover:border-brand active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
               >
-                {t.modes[id].name}
+                <span className="min-w-0 truncate">{t.modes[id].name}</span>
+                {/* Like GamePigeon: your wins in this game, once you have some. */}
+                {(progress?.modes[id]?.wins ?? 0) > 0 && (
+                  <span className="shrink-0 text-xs font-semibold tabular-nums text-gold-ink">{t.home.wins(progress!.modes[id]!.wins)}</span>
+                )}
               </Link>
             </li>
           ))}

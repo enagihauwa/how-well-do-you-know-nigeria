@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { connectRoom } from "./connect";
 import type { ChatMessage, ClientAction, RoomView } from "@naija/game/room/engine";
 import { CHAT_HISTORY } from "@naija/game/room/engine";
+import type { Award } from "@naija/game/progress/progress";
 import type { ConnectionError, RoomConnection, ServerMessage } from "@naija/game/room/protocol";
+import { refreshAccount } from "@/lib/account/account";
 
 /** Errors that end this visit to the room, as opposed to a refused action. */
 const FATAL: ConnectionError[] = [
@@ -15,6 +17,8 @@ const FATAL: ConnectionError[] = [
   "invalid_name",
   "not_in_room",
   "server_unreachable",
+  "sign_in_required",
+  "account_in_use",
 ];
 
 export type ConnectionStatus = Extract<ServerMessage, { type: "status" }>["status"];
@@ -28,6 +32,8 @@ export interface RoomHandle {
   notice: ConnectionError | null;
   /** Add to Date.now() to get the room's clock. */
   clockOffset: number;
+  /** What this player earned in the last finished match; cleared when the next one starts. */
+  award: Award | null;
   send: (action: ClientAction) => void;
 }
 
@@ -42,6 +48,7 @@ export function useRoom(code: string, name: string | null): RoomHandle {
   const [fatalError, setFatalError] = useState<ConnectionError | null>(null);
   const [notice, setNotice] = useState<ConnectionError | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
+  const [award, setAward] = useState<Award | null>(null);
   const connection = useRef<RoomConnection | null>(null);
 
   useEffect(() => {
@@ -53,6 +60,7 @@ export function useRoom(code: string, name: string | null): RoomHandle {
         case "view":
           setView(message.view);
           setNotice(null);
+          if (message.view.status === "playing") setAward(null);
           // Only re-render for skew when it moved noticeably; small jitter is invisible.
           setClockOffset((prev) => {
             const next = message.serverNow - Date.now();
@@ -71,6 +79,10 @@ export function useRoom(code: string, name: string | null): RoomHandle {
           if (FATAL.includes(message.error)) setFatalError(message.error);
           else setNotice(message.error);
           break;
+        case "award":
+          setAward(message.award);
+          void refreshAccount(); // new level, badges and rank everywhere
+          break;
       }
     });
     return () => {
@@ -82,5 +94,5 @@ export function useRoom(code: string, name: string | null): RoomHandle {
 
   const send = useCallback((action: ClientAction) => connection.current?.send(action), []);
 
-  return { view, chat, status, fatalError, notice, clockOffset, send };
+  return { view, chat, status, fatalError, notice, clockOffset, award, send };
 }

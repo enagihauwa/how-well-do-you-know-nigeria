@@ -49,6 +49,7 @@ export function TriviaMatch({ room, match, clockOffset, onLock, onNext }: Trivia
         title={`${t.modes.trivia.name} · ${categories.find((c) => c.id === match.category)?.label ?? ""}`}
         progress={t.quiz.questionOf(match.index + 1, match.total)}
         teamScores={match.teamScores}
+        playerScores={match.playerScores}
         timer={answering ? { endsAt: match.endsAt, totalSeconds: SECONDS_PER_QUESTION } : null}
         autoNextAt={answering ? undefined : match.endsAt}
       />
@@ -102,7 +103,7 @@ export function TriviaMatch({ room, match, clockOffset, onLock, onNext }: Trivia
             ))}
           </ul>
           <div className="mt-5">
-            <HostNext isHost={isHost} onNext={onNext} />
+            <HostNext isHost={isHost} hostless={room.hostId === null} onNext={onNext} />
           </div>
         </section>
       )}

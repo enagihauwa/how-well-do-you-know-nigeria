@@ -7,7 +7,8 @@ import { Button, buttonClasses } from "@/components/ui/Button";
 import { useCopy } from "@/lib/i18n/useCopy";
 import type { GuessTheYearView, SortAmView } from "@naija/game/modes";
 import { isRoomCode, normalizeRoomCode } from "@naija/game/room/code";
-import { quickPlayCode } from "@/lib/room/connect";
+import { quickPlayCode, type QueueId } from "@/lib/room/connect";
+import { rankedQueueFor } from "@naija/game/room/queues";
 import { cleanName, type RoomView } from "@naija/game/room/engine";
 import { getNicknameSnapshot, getTabNameSnapshot, saveNickname, subscribeNickname } from "@/lib/room/identity";
 import { useRoom, type RoomHandle } from "@/lib/room/useRoom";
@@ -67,7 +68,10 @@ function ConnectedRoom({ code, name }: { code: string; name: string }) {
 
   // Public matches: leave this finished room and queue for a new one in the same queue.
   const playAgain = async () => {
-    const queue = room.view?.settings.configs["battle-royale"].squads ? "squads" : "solo";
+    const view = room.view;
+    const queue: QueueId =
+      (view?.ranked && rankedQueueFor(view.settings.mode)) ||
+      (view?.settings.configs["battle-royale"].squads ? "squads" : "solo");
     room.send({ type: "leave" });
     try {
       router.push(`/room/${await quickPlayCode(queue)}`);
@@ -120,7 +124,7 @@ function RoomBody({
     );
   }
   if (view.status === "finished") {
-    return <MatchResults view={view} onBackToLobby={() => send({ type: "back_to_lobby" })} onPlayAgain={onPlayAgain} />;
+    return <MatchResults view={view} award={room.award} onBackToLobby={() => send({ type: "back_to_lobby" })} onPlayAgain={onPlayAgain} />;
   }
 
   const match = view.match;

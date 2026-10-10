@@ -26,7 +26,9 @@ export function PublicLobby({ view, clockOffset, onLeave }: PublicLobbyProps) {
       <TopBar back={{ label: t.room.leave, onClick: onLeave }} />
 
       <header className="mt-6 text-center">
-        <p className="text-sm font-semibold text-brand-ink">{squads ? t.quickPlay.squads : t.quickPlay.solo}</p>
+        <p className="text-sm font-semibold text-brand-ink">
+          {view.ranked ? `${t.ranked.badge} · ${t.modes[view.settings.mode].name}` : squads ? t.quickPlay.squads : t.quickPlay.solo}
+        </p>
         <h1 className="mt-2 text-3xl font-semibold">{view.startsAt === null ? t.quickPlay.searching : t.quickPlay.startsIn(secondsLeft)}</h1>
         <p role="status" className="mt-2 text-base text-muted">
           {view.startsAt !== null

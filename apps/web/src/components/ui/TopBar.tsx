@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useCopy } from "@/lib/i18n/useCopy";
+import { ProfileChip } from "@/components/account/ProfileChip";
 import { SettingsSheet } from "./SettingsSheet";
 
 type Back = { label: string } & ({ href: string } | { onClick: () => void });
@@ -23,7 +24,7 @@ const arrow = (
   </svg>
 );
 
-/** Every screen's top row: back (or a title) on the left, settings on the right. */
+/** Every screen's top row: back (or a title) on the left; profile and settings on the right. */
 export function TopBar({ back, title }: TopBarProps) {
   const t = useCopy();
   const [open, setOpen] = useState(false);
@@ -45,18 +46,21 @@ export function TopBar({ back, title }: TopBarProps) {
           <div className="truncate text-sm font-semibold text-brand-ink">{title}</div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={t.settings.open}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-foreground transition hover:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-          <circle cx="16" cy="7" r="2" />
-          <circle cx="8" cy="17" r="2" />
-        </svg>
-      </button>
+      <div className="flex shrink-0 gap-2">
+        <ProfileChip />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t.settings.open}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-foreground transition hover:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="8" cy="17" r="2" />
+          </svg>
+        </button>
+      </div>
       <SettingsSheet open={open} onClose={() => setOpen(false)} />
     </div>
   );

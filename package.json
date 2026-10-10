@@ -10,9 +10,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @naija/web",
+    "dev": "node scripts/dev-all.mjs",
+    "dev:web": "npm run dev -w @naija/web",
     "dev:server": "npm run dev -w @naija/server",
-    "dev:all": "node scripts/dev-all.mjs",
     "build": "npm run build -w @naija/web",
     "start": "npm run start -w @naija/web",
     "server": "npm run start -w @naija/server",

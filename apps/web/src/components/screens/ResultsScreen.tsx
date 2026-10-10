@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Award } from "@naija/game/progress/progress";
+import { AwardCard } from "@/components/account/AwardCard";
+import { submitSolo } from "@/lib/account/account";
 import { categories } from "@naija/game/data/categories";
 import {
   MAX_SCORE,
@@ -34,6 +37,15 @@ export function ResultsScreen({
     window.scrollTo(0, 0);
     headingRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // Report the quiz once (the ref survives React's development double-run of effects).
+  const [award, setAward] = useState<Award | null>(null);
+  const reported = useRef(false);
+  useEffect(() => {
+    if (reported.current) return;
+    reported.current = true;
+    void submitSolo({ correct: getCorrectCount(score), total: QUESTIONS_PER_GAME, score }).then(setAward);
+  }, [score]);
 
   const categoryLabel = categories.find((c) => c.id === category)?.label;
   const correct = getCorrectCount(score);
@@ -90,6 +102,12 @@ export function ResultsScreen({
           {t.results.correctOf}
         </p>
       </section>
+
+      {award && (
+        <div className="mt-4 w-full">
+          <AwardCard award={award} solo />
+        </div>
+      )}
 
       <div className="mt-6 flex w-full flex-col gap-3">
         <Button onClick={onPlayAgain} className="w-full">

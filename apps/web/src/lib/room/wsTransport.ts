@@ -25,13 +25,17 @@ export interface WsRoomOptions {
   playerId: string;
   secret: string;
   name: string;
+  /** The account session token to send in the hello, if any. */
+  getToken?: () => Promise<string | null>;
 }
 
-export function connectWsRoom({ serverUrl, code, playerId, secret, name }: WsRoomOptions): RoomConnection {
+export function connectWsRoom({ serverUrl, code, playerId, secret, name, getToken }: WsRoomOptions): RoomConnection {
   const url = `${serverUrl.replace(/^http/, "ws").replace(/\/$/, "")}/rooms/${code}`;
   const listeners = new Set<(message: ServerMessage) => void>();
   const queue: ClientAction[] = [];
   let socket: WebSocket | null = null;
+  /** The current socket has sent its hello; until then actions wait in the queue. */
+  let greeted = false;
   let attempts = 0;
   let everConnected = false;
   let closed = false;
@@ -48,11 +52,16 @@ export function connectWsRoom({ serverUrl, code, playerId, secret, name }: WsRoo
     retry = null;
     const ws = new WebSocket(url);
     socket = ws;
+    greeted = false;
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
       attempts = 0;
       everConnected = true;
-      write({ type: "hello", playerId, secret, name });
+      // Never let an account problem keep a player out of a room: play on as a plain guest.
+      const token = await getToken?.().catch(() => null);
+      if (socket !== ws || ws.readyState !== WebSocket.OPEN) return;
+      write({ type: "hello", playerId, secret, name, ...(token && { token }) });
+      greeted = true;
       while (queue.length) write({ type: "action", action: queue.shift()! });
       emit({ type: "status", status: "connected" });
     };
@@ -92,7 +101,7 @@ export function connectWsRoom({ serverUrl, code, playerId, secret, name }: WsRoo
 
   return {
     send(action) {
-      if (socket?.readyState === WebSocket.OPEN) write({ type: "action", action });
+      if (greeted && socket?.readyState === WebSocket.OPEN) write({ type: "action", action });
       else if (queue.length < MAX_QUEUED) queue.push(action);
     },
     subscribe(listener) {

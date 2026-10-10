@@ -32,10 +32,13 @@ Whoever owns the Railway account does this.
    - **Start command:** `npm run server` (leave Root Directory empty: the server needs the whole monorepo, since it uses the shared `packages/game`)
    - **Replicas: 1.** Rooms live in the server's memory, so a second copy would split players into rooms that can't see each other.
    - **Networking → Generate domain** to get a public address, e.g. `https://naija-rooms.up.railway.app`.
-3. In the service's **Variables**:
+3. Add a database: in the project, **New → Database → PostgreSQL**. Railway creates `DATABASE_URL`; reference it from the room server's variables (`DATABASE_URL` = `${{Postgres.DATABASE_URL}}`). Accounts and progress live there; the tables are created when the server starts.
+4. In the service's **Variables**:
+   - `BETTER_AUTH_SECRET` = a long random value (run `openssl rand -base64 32`). Keep it secret and never change it: changing it signs everyone out.
+   - `PUBLIC_URL` = the server's public address from the domain step, e.g. `https://naija-rooms.up.railway.app`.
    - `ALLOWED_ORIGINS` = the website's address, e.g. `https://how-well-do-you-know-nigeria.vercel.app`. Add more, separated by commas, if the site has a custom domain too. This stops other websites from using the server.
    - `PORT` is set by Railway automatically. Do not set it.
-4. Check it is running: open `https://<railway-domain>/health` in a browser. It should show `{"ok":true,"rooms":0}`.
+5. Check it is running: open `https://<railway-domain>/health` in a browser. It should show `{"ok":true,"rooms":0}`.
 
 ### 2. Point the website at the room server (Vercel)
 

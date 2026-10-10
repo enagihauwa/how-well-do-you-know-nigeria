@@ -44,6 +44,7 @@ export function GuessTheYearMatch({ room, match, clockOffset, onAnswer, onNext }
         title={t.modes["guess-the-year"].name}
         progress={t.quiz.questionOf(match.index + 1, match.total)}
         teamScores={match.teamScores}
+        playerScores={match.playerScores}
         timer={answering ? { endsAt: match.endsAt, totalSeconds: match.answerMs / 1000 } : null}
         autoNextAt={answering ? undefined : match.endsAt}
       />
@@ -100,7 +101,7 @@ export function GuessTheYearMatch({ room, match, clockOffset, onAnswer, onNext }
             <RoundResults room={room} results={match.results} format={(y) => String(y)} />
           </div>
           <div className="mt-5">
-            <HostNext isHost={room.hostId === room.you} onNext={onNext} />
+            <HostNext isHost={room.hostId === room.you} hostless={room.hostId === null} onNext={onNext} />
           </div>
         </section>
       )}

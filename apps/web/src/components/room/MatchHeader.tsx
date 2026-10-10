@@ -13,13 +13,15 @@ interface MatchHeaderProps {
   title: string;
   progress: string;
   teamScores: Record<string, number>;
+  /** Every-player-for-themselves rooms (Quick Play) show players instead of teams. */
+  playerScores?: Record<string, number>;
   /** Timer shown while answering; null hides it. */
   timer: { endsAt: number; totalSeconds: number } | null;
   /** During a reveal: when it auto-advances. */
   autoNextAt?: number;
 }
 
-export function MatchHeader({ view, clockOffset, title, progress, teamScores, timer, autoNextAt }: MatchHeaderProps) {
+export function MatchHeader({ view, clockOffset, title, progress, teamScores, playerScores, timer, autoNextAt }: MatchHeaderProps) {
   const t = useCopy();
   // Room deadlines are on the server's clock; convert to this phone's clock once.
   const localEndsAt = timer ? timer.endsAt - clockOffset : 0;
@@ -31,7 +33,7 @@ export function MatchHeader({ view, clockOffset, title, progress, teamScores, ti
     <header>
       <TopBar title={title} />
       <div className="mt-3">
-        <Scoreboard view={view} teamScores={teamScores} />
+        <Scoreboard view={view} teamScores={teamScores} playerScores={playerScores} />
       </div>
       <p className="mt-4 text-sm font-medium text-muted">{progress}</p>
       <div className="mt-2 mb-4 min-h-7">

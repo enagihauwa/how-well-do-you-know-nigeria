@@ -1,12 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCopy } from "@/lib/i18n/useCopy";
 import { isPrivateModeId } from "@naija/game/modes";
 import { isRoomCode, normalizeRoomCode, ROOM_CODE_LENGTH } from "@naija/game/room/code";
-import { createRoomCode, quickPlayCode, type QueueId } from "@/lib/room/connect";
+import { createRoomCode, quickPlayCode, SignInRequired, type QueueId } from "@/lib/room/connect";
+import { QUEUES, RANKED_QUEUES } from "@naija/game/room/queues";
+import { RankSummary } from "@/components/account/Rank";
+import { accountsEnabled } from "@/lib/account/account";
+import { useAccount } from "@/lib/account/useAccount";
 import { cleanName } from "@naija/game/room/engine";
 import { getNicknameSnapshot, saveNickname, subscribeNickname } from "@/lib/room/identity";
 import { NicknameField, inputClasses } from "./NicknameField";
@@ -25,6 +30,8 @@ export function RoomEntry() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const account = useAccount();
+  const canRank = account.user !== null && !account.user.isAnonymous;
 
   const withName = (go: () => void | Promise<void>) => {
     const clean = cleanName(name);
@@ -49,8 +56,8 @@ export function RoomEntry() {
       setCreating(true);
       try {
         router.push(`/room/${await quickPlayCode(queue)}`);
-      } catch {
-        setError(t.errors.server_unreachable);
+      } catch (e) {
+        setError(e instanceof SignInRequired ? t.ranked.needAccount : t.errors.server_unreachable);
         setCreating(false);
       }
     });
@@ -106,6 +113,41 @@ export function RoomEntry() {
           ))}
         </div>
       </section>
+
+      {accountsEnabled && (
+        <section className="anim-enter mt-4 rounded-3xl border border-line bg-surface p-5" style={{ "--i": 2 } as React.CSSProperties}>
+          <h2 className="text-lg font-semibold">{t.ranked.title}</h2>
+          <p className="mt-1 text-sm text-muted">{t.ranked.subtitle}</p>
+          {canRank ? (
+            <div className="mt-3 flex flex-col gap-2">
+              {RANKED_QUEUES.map((queue) => {
+                const mode = QUEUES[queue].mode;
+                return (
+                  <button
+                    key={queue}
+                    type="button"
+                    disabled={creating}
+                    onClick={() => quickPlay(queue)}
+                    className="flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-background p-3 text-left transition hover:border-brand active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
+                  >
+                    <span className="w-28 shrink-0 font-semibold">{t.modes[mode].name}</span>
+                    <span className="min-w-0 flex-1">
+                      <RankSummary record={account.progress?.modes[mode]?.ranked} compact />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <Link
+              href="/me"
+              className="mt-3 flex min-h-12 items-center justify-center rounded-2xl border border-dashed border-brand px-4 text-center font-semibold text-brand-ink transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
+            >
+              {t.ranked.needAccount}
+            </Link>
+          )}
+        </section>
+      )}
 
       <section className="anim-enter mt-4 rounded-3xl border border-line bg-surface p-5" style={{ "--i": 2 } as React.CSSProperties}>
         <h2 className="text-lg font-semibold">{t.room.createTitle}</h2>

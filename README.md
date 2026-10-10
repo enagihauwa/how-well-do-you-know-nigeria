@@ -58,16 +58,12 @@ Package manager: **npm**. There is no database or authentication yet.
 
 ```bash
 npm install
-npm run dev          # the app, at http://localhost:3000
+npm run dev          # the app at http://localhost:3000 + the room server on :8787
 ```
 
-With only `npm run dev`, multiplayer runs in **test mode**: rooms live in your browser tab, and other tabs on the same device can join. Quick Play works too, against bots, so you can try every game alone.
+That runs everything: multiplayer, accounts, progress, ranked and leaderboards. Without a database, accounts and progress live in the server's memory and reset when it restarts; to keep them, create a Postgres database and put `DATABASE_URL=postgres://localhost/naija_trivia` in `apps/server/.env` (see `apps/server/.env.example`). Tables are created on start.
 
-**Real multiplayer** (across phones and devices) needs the room server. One command starts both:
-
-```bash
-npm run dev:all      # room server on :8787 + the app pointed at it
-```
+`npm run dev:web` runs the app alone in **test mode**: rooms live in your browser tab, other tabs on the same device can join, Quick Play fills with bots so you can try every game alone, and there are no accounts.
 
 Other devices on your Wi-Fi can't reach `localhost`; to test on a phone, deploy the room server (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
@@ -75,8 +71,8 @@ Other devices on your Wi-Fi can't reach `localhost`; to test on a phone, deploy 
 
 | Command | What it does |
 |---|---|
-| `npm run dev:all` | The app and the room server together (real multiplayer locally) |
-| `npm run dev` | Development server for the app (multiplayer in test mode) |
+| `npm run dev` | The app and the room server together (multiplayer, accounts, ranked) |
+| `npm run dev:web` | The app alone (multiplayer in test mode, no accounts) |
 | `npm run server` | Room server (WebSocket + HTTP) |
 | `npm run dev:server` | Room server, restarting on changes |
 | `npm test` | All tests in every package once (Vitest), including the room server's real-socket tests |
@@ -94,6 +90,9 @@ Other devices on your Wi-Fi can't reach `localhost`; to test on a phone, deploy 
 | `NEXT_PUBLIC_ADS_ENABLED` | app, at build time | `true` shows the ad slots. |
 | `PORT` | room server | Port to listen on (set by most hosts). Default 8787. |
 | `ALLOWED_ORIGINS` | room server | Comma-separated origins allowed to create and join rooms, e.g. `https://naijaquiz.app`. Unset: any origin. **Set it in production.** |
+| `DATABASE_URL` | room server | Postgres for accounts and progress. Unset: in memory, lost on restart. **Set it in production.** |
+| `BETTER_AUTH_SECRET` | room server | Signs session tokens (`openssl rand -base64 32`). **Required in production**; the server refuses to start without it. |
+| `PUBLIC_URL` | room server | The server's own public URL, e.g. `https://naija-rooms.up.railway.app`. |
 | `QUICKPLAY_MIN_PLAYERS`, `QUICKPLAY_COUNTDOWN_MS` | room server | Staging/testing only: start Quick Play matches with fewer players and a shorter countdown. |
 
 ### Deploying
@@ -118,7 +117,13 @@ phone ── WebSocket ──► room server ──► RoomHost (one per room) �
 
 **Capacity** (measured with `npm run load` on an Apple-silicon Mac, load generator on the same machine): one room-server process handled 1,000 concurrent players at 53% of one core with a 1.5 ms 99th-percentile round trip, and up to 4,000 before saturating one core; 8,000 failed. Plan on roughly 1,000–1,500 players per process on a typical cloud core, and scale out by running more processes with rooms spread across them.
 
-**Rankings:** `packages/game/src/ranking/rating.ts` rates players from finishing order (Elo across the field; squads share their squad's change) and maps ratings to tiers: JJC, Learner, Sharp, Oga, Chairman, Odogwu. It is not wired up yet: ratings need accounts and a database to be stored.
+## Accounts, progress and ranked
+
+- **Accounts are optional.** Every device gets a guest profile on first use (Better Auth's anonymous users), so XP and badges count from the first game. Signing up (email and password) keeps that progress and works on any phone; signing in on a device with guest progress merges it in. Guests can do everything except ranked, and they don't appear on leaderboards. Sessions are bearer tokens, not cookies, because the site and the server are on different domains.
+- **Progress** (`packages/game/src/progress/progress.ts`, pure): XP and levels, a daily streak on Lagos time, badges, and per game: wins, games played, games vs bots, best score. The server works out results from the match itself (`room/results.ts`) and saves them once per match, so a phone can't award itself anything. Solo quiz results are reported by the phone, validated and rate-limited, and never count for wins or rank.
+- **Wins count only against people.** A match against bots alone is practice: half XP, no wins.
+- **Ranked** (`packages/game/src/ranking/ranked.ts`), Valorant-style: a Ranked Quick Play queue per game (Trivia, Guess the Year, Sort Am, Who Go Remain?), every player for themselves, no bots, signed-up accounts only, one seat per account. A hidden MMR (Elo) measures skill; the visible rank is JJC 1 → Chairman 3, then Odogwu, with RR 0–99. Win and gain RR, lose and drop; the gap between MMR and rank nudges each change, so you climb to where you belong. 100 RR promotes, below 0 demotes, the first 5 matches are placements, and Odogwu's RR is uncapped. Private rooms and casual Quick Play never change rank. Matchmaking pairs similar MMR, widening the window the longer a room waits.
+- **Leaderboards** per game, by wins or by rank: `/leaderboard`. Your profile is `/me`.
 
 ## Tests
 
@@ -126,6 +131,9 @@ Logic, data, the room engine, every game mode, ratings and the room server (over
 
 - `packages/game/tests/`: `selectQuestions`, `scoring`, `data` (question bank), `triviaMode`, `noTalkAmMode`, `roundModes`, `battleRoyale` (each game mode, including that secrets never leak), `bots`, `roomEngine` (lobby, teams, host handover, seats, chat, Quick Play rooms), `rating`, `textMatch`.
 - `apps/server/tests/roomServer.test.ts`: the real server with real sockets: a match, chat privacy, seat ownership, malformed input, matchmaking.
+- `apps/server/tests/accounts.test.ts`: guests, sign-up keeping progress, a full match saved for both players, leaderboards, ranked access rules.
+- `apps/server/tests/postgresStore.test.ts`: the Postgres store against a real database; runs when `TEST_DATABASE_URL` is set.
+- `packages/game/tests/progress.test.ts`, `ranked.test.ts`: XP, streaks, badges, merging, placements, RR, promotion and demotion.
 - `apps/web/tests/`: `quizReducer` (solo game), `theme`, `contrast`.
 
 ## Project structure
@@ -152,7 +160,8 @@ npm workspaces link the three packages. The app and the server import shared cod
 ## Current limitations
 
 - **Content is unreviewed sample data:** 47 questions, 48 No Talk Am cards, 24 years and 10 Sort Am items. A larger, fact-checked bank (with regions and sources) is still to be written, and the Pidgin needs a native speaker's review. Battle royale in particular needs many more questions.
-- **No accounts or database yet.** Ratings, match history, friends and saved teams wait on them; rooms live in the room server's memory and are lost when it restarts.
-- **No voice chat yet** (planned: opt-in team voice).
+- **Rooms live in the room server's memory** and are lost when it restarts; progress is saved, rooms are not. No match history, friends or saved teams yet.
+- **No password reset yet:** it needs an email service. A forgotten password means a new account for now.
+- **No voice chat yet** (planned: opt-in team voice). No Talk Am needs everyone in one place until then, since the describer's chat is muted.
 - **Public rooms need moderation tools** (reporting) before launch, and a privacy policy for the Nigeria Data Protection Act 2023.
 - **UI tests are manual:** checked in headless Chromium at phone size, not yet on real phones or with a screen reader.
