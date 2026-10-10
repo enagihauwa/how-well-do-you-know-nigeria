@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { SECONDS_PER_QUESTION } from "@/lib/quiz/scoring";
 import { useCountdown } from "@/lib/quiz/useCountdown";
+import { useCopy } from "@/lib/i18n/useCopy";
 import type { Phase, Question } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { AnswerOption, type AnswerStatus } from "./AnswerOption";
@@ -24,12 +25,15 @@ interface QuestionPanelProps {
   timedOut: boolean;
   isLast: boolean;
   onAnswer: (option: string) => void;
+  /** Reveal now. Only offered once the player has picked. */
+  onCheck: () => void;
   onTimeUp: () => void;
   onNext: () => void;
 }
 
 /**
- * One question: timer, options, feedback and Next. Render it with `key={questionIndex}`
+ * One question: timer, options, feedback and Next. The pick can change until the reveal (time
+ * running out, or Check answer). Render it with `key={questionIndex}`
  * so the countdown and focus start fresh for every question. The reducer owns scoring
  * and phase; this component only reports events.
  */
@@ -40,14 +44,16 @@ export function QuestionPanel({
   timedOut,
   isLast,
   onAnswer,
+  onCheck,
   onTimeUp,
   onNext,
 }: QuestionPanelProps) {
+  const t = useCopy();
   const answering = phase === "answering";
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  const remainingMs = useCountdown({
+  const { endsAt, secondsLeft } = useCountdown({
     seconds: SECONDS_PER_QUESTION,
     running: answering,
     onExpire: onTimeUp,
@@ -85,7 +91,7 @@ export function QuestionPanel({
         : "wrong";
 
   const statusOf = (option: string): AnswerStatus => {
-    if (answering) return "idle";
+    if (answering) return option === selectedAnswer ? "locked" : "idle";
     if (option === question.answer) return "correct";
     if (option === selectedAnswer) return "wrong";
     return "dimmed";
@@ -93,12 +99,12 @@ export function QuestionPanel({
 
   return (
     <>
-      <TimerBar remainingMs={remainingMs} totalSeconds={SECONDS_PER_QUESTION} />
+      <TimerBar endsAt={endsAt} totalSeconds={SECONDS_PER_QUESTION} secondsLeft={secondsLeft} paused={!answering} />
 
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="mt-5 text-balance text-2xl font-extrabold leading-snug focus:outline-none sm:text-3xl"
+        className="mt-5 text-balance text-2xl font-semibold leading-snug focus:outline-none sm:text-3xl"
       >
         {question.question}
       </h1>
@@ -117,15 +123,22 @@ export function QuestionPanel({
         ))}
       </ul>
 
-      <div className="mt-4">
+      <p className="mt-3 min-h-5 text-center text-sm text-muted">{answering && selectedAnswer !== null && t.quiz.changeHint}</p>
+
+      {/* Always rendered: it is a live region, so the result is announced when it appears. */}
+      <div className="mt-2">
         <FeedbackBanner kind={feedbackKind} correctAnswer={question.answer} />
       </div>
 
       <div className="mt-4 min-h-14">
+        {answering && selectedAnswer !== null && (
+          <Button onClick={onCheck} className="anim-enter w-full">
+            {t.quiz.check}
+          </Button>
+        )}
         {!answering && (
           <Button ref={nextRef} onClick={onNext} className="w-full">
-            {isLast ? "SEE RESULTS" : "NEXT"}
-            <span aria-hidden="true">→</span>
+            {isLast ? t.common.seeResults : t.common.next}
           </Button>
         )}
       </div>

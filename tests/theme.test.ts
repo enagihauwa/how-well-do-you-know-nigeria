@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_THEME, THEME_STORAGE_KEY, isTheme, themeInitScript } from "@/lib/theme";
+import {
+  DEFAULT_PREFERENCE,
+  THEME_STORAGE_KEY,
+  isThemePreference,
+  resolveTheme,
+  themeInitScript,
+} from "@/lib/theme";
 
 /** Runs the real head script against stubbed browser objects and returns what it did. */
-function runInitScript(storage: { getItem: (key: string) => string | null }) {
+function runInitScript(storage: { getItem: (key: string) => string | null }, systemDark = false) {
   const attributes: Record<string, string> = {};
   const document = {
     documentElement: {
@@ -11,29 +17,33 @@ function runInitScript(storage: { getItem: (key: string) => string | null }) {
       },
     },
   };
-  new Function("localStorage", "document", themeInitScript)(storage, document);
+  const window = { matchMedia: () => ({ matches: systemDark }) };
+  new Function("localStorage", "document", "window", themeInitScript)(storage, document, window);
   return attributes;
 }
 
-describe("isTheme", () => {
-  it("accepts only 'light' and 'dark'", () => {
-    expect(isTheme("light")).toBe(true);
-    expect(isTheme("dark")).toBe(true);
-    expect(isTheme("system")).toBe(false);
-    expect(isTheme("")).toBe(false);
-    expect(isTheme(null)).toBe(false);
-    expect(isTheme(undefined)).toBe(false);
+describe("isThemePreference", () => {
+  it("accepts light, dark and system only", () => {
+    for (const ok of ["light", "dark", "system"]) expect(isThemePreference(ok)).toBe(true);
+    for (const bad of ["", "purple", null, undefined]) expect(isThemePreference(bad)).toBe(false);
   });
 });
 
-describe("theme defaults", () => {
-  it("first-time visitors get light", () => {
-    expect(DEFAULT_THEME).toBe("light");
+describe("resolveTheme", () => {
+  it("follows the phone by default", () => {
+    expect(DEFAULT_PREFERENCE).toBe("system");
+    expect(resolveTheme("system", true)).toBe("dark");
+    expect(resolveTheme("system", false)).toBe("light");
+  });
+
+  it("an explicit choice wins over the phone", () => {
+    expect(resolveTheme("light", true)).toBe("light");
+    expect(resolveTheme("dark", false)).toBe("dark");
   });
 });
 
 describe("themeInitScript (applied before first paint)", () => {
-  it("reads the saved theme from the documented storage key", () => {
+  it("reads the saved preference from the documented storage key", () => {
     let requestedKey = "";
     runInitScript({
       getItem: (key) => {
@@ -44,28 +54,23 @@ describe("themeInitScript (applied before first paint)", () => {
     expect(requestedKey).toBe(THEME_STORAGE_KEY);
   });
 
-  it("restores a saved dark theme", () => {
-    expect(runInitScript({ getItem: () => "dark" })).toEqual({ "data-theme": "dark" });
+  it("restores a saved light or dark choice regardless of the phone", () => {
+    expect(runInitScript({ getItem: () => "dark" }, false)).toEqual({ "data-theme": "dark" });
+    expect(runInitScript({ getItem: () => "light" }, true)).toEqual({ "data-theme": "light" });
   });
 
-  it("restores a saved light theme", () => {
-    expect(runInitScript({ getItem: () => "light" })).toEqual({ "data-theme": "light" });
+  it("follows the phone when nothing, system, or an invalid value is saved", () => {
+    expect(runInitScript({ getItem: () => null }, true)).toEqual({ "data-theme": "dark" });
+    expect(runInitScript({ getItem: () => "system" }, false)).toEqual({ "data-theme": "light" });
+    expect(runInitScript({ getItem: () => "purple" }, true)).toEqual({ "data-theme": "dark" });
   });
 
-  it("uses light when nothing is saved", () => {
-    expect(runInitScript({ getItem: () => null })).toEqual({ "data-theme": "light" });
-  });
-
-  it("ignores an invalid saved value and uses light", () => {
-    expect(runInitScript({ getItem: () => "purple" })).toEqual({ "data-theme": "light" });
-  });
-
-  it("does not throw when storage is unavailable, and leaves the default in place", () => {
-    const attributes = runInitScript({
+  it("still follows the phone when storage is unavailable", () => {
+    const blocked = {
       getItem: () => {
         throw new Error("storage blocked");
       },
-    });
-    expect(attributes).toEqual({});
+    };
+    expect(runInitScript(blocked, true)).toEqual({ "data-theme": "dark" });
   });
 });

@@ -1,16 +1,20 @@
 import { categories } from "@/data/categories";
+import { useCopy } from "@/lib/i18n/useCopy";
 import type { QuizState } from "@/lib/types";
 import { QuestionPanel } from "@/components/quiz/QuestionPanel";
+import { TopBar } from "@/components/ui/TopBar";
 
 interface QuizScreenProps {
   state: QuizState;
   onBack: () => void;
   onAnswer: (option: string) => void;
+  onCheck: () => void;
   onTimeUp: () => void;
   onNext: () => void;
 }
 
-export function QuizScreen({ state, onBack, onAnswer, onTimeUp, onNext }: QuizScreenProps) {
+export function QuizScreen({ state, onBack, onAnswer, onCheck, onTimeUp, onNext }: QuizScreenProps) {
+  const t = useCopy();
   const question = state.questions[state.currentIndex];
   if (!question) return null;
 
@@ -18,22 +22,13 @@ export function QuizScreen({ state, onBack, onAnswer, onTimeUp, onNext }: QuizSc
   const categoryLabel = categories.find((c) => c.id === state.category)?.label;
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-xl px-6 py-6">
-      <div className="flex items-center justify-between gap-3 pr-10 sm:pr-0">
-        <button
-          type="button"
-          onClick={onBack}
-          className="-ml-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-base font-semibold text-brand-ink transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
-        >
-          <span aria-hidden="true">←</span> Back
-        </button>
-        <p className="text-sm font-bold text-brand-ink">{categoryLabel}</p>
-      </div>
+    <main className="mx-auto min-h-dvh w-full max-w-xl px-4 py-4 sm:px-6 sm:py-6">
+      <TopBar back={{ label: t.common.back, onClick: onBack }} />
 
-      <p className="mt-4 text-sm font-extrabold uppercase tracking-widest text-foreground/65 dark:text-foreground/60">
-        Question {state.currentIndex + 1} of {total}
+      <p className="mt-4 text-sm font-medium text-muted">
+        <span className="font-semibold text-brand-ink">{categoryLabel}</span> ·{" "}
+        {t.quiz.questionOf(state.currentIndex + 1, total)}
       </p>
-      <div aria-hidden="true" className="mt-2 mb-5 h-1 w-14 rounded-full bg-gold" />
 
       {/* key: a fresh timer, focus and local state for every question */}
       <QuestionPanel
@@ -44,6 +39,7 @@ export function QuizScreen({ state, onBack, onAnswer, onTimeUp, onNext }: QuizSc
         timedOut={state.timedOut}
         isLast={state.currentIndex === total - 1}
         onAnswer={onAnswer}
+        onCheck={onCheck}
         onTimeUp={onTimeUp}
         onNext={onNext}
       />

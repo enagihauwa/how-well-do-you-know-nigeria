@@ -1,19 +1,24 @@
 export type Theme = "light" | "dark";
+/** What the player chose. `system` follows the phone's light/dark setting. */
+export type ThemePreference = Theme | "system";
 
 export const THEME_STORAGE_KEY = "theme";
-/** First-time visitors always get light, regardless of their operating system setting. */
-export const DEFAULT_THEME: Theme = "light";
+/** First-time visitors follow their phone's setting. */
+export const DEFAULT_PREFERENCE: ThemePreference = "system";
 
-export function isTheme(value: unknown): value is Theme {
-  return value === "light" || value === "dark";
+export function isThemePreference(value: unknown): value is ThemePreference {
+  return value === "light" || value === "dark" || value === "system";
+}
+
+export function resolveTheme(preference: ThemePreference, systemDark: boolean): Theme {
+  if (preference === "system") return systemDark ? "dark" : "light";
+  return preference;
 }
 
 /**
- * Runs in <head> while the HTML is being parsed, before the first paint, so a saved theme is
- * applied without a flash. If storage is unavailable, the server-rendered default stays.
+ * Runs in <head> while the HTML is being parsed, before the first paint, so the right theme is
+ * applied without a flash. If storage is unavailable it still follows the phone's setting.
  */
-export const themeInitScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
+export const themeInitScript = `(function(){var p=${JSON.stringify(DEFAULT_PREFERENCE)};try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});document.documentElement.setAttribute("data-theme",t==="dark"||t==="light"?t:${JSON.stringify(
-  DEFAULT_THEME,
-)})}catch(e){}})()`;
+)});if(s==="light"||s==="dark"||s==="system")p=s}catch(e){}var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light")})()`;

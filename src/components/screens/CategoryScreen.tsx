@@ -1,5 +1,7 @@
 import { categories } from "@/data/categories";
+import { useCopy } from "@/lib/i18n/useCopy";
 import type { CategoryId } from "@/lib/types";
+import { TopBar } from "@/components/ui/TopBar";
 
 interface CategoryScreenProps {
   onBack: () => void;
@@ -7,52 +9,33 @@ interface CategoryScreenProps {
 }
 
 export function CategoryScreen({ onBack, onSelect }: CategoryScreenProps) {
+  const t = useCopy();
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-xl px-6 py-6 sm:py-12">
-      <button
-        type="button"
-        onClick={onBack}
-        className="-ml-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-base font-semibold text-brand-ink transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus"
-      >
-        <span aria-hidden="true">←</span> Back
-      </button>
+    <main className="mx-auto min-h-dvh w-full max-w-xl px-4 py-4 sm:px-6 sm:py-6">
+      <TopBar back={{ label: t.common.back, onClick: onBack }} />
 
-      <header className="mt-4 text-center sm:mt-6">
-        <h1 className="text-2xl font-extrabold uppercase tracking-tight sm:text-4xl">
-          Choose a <span className="text-brand-ink">category</span>
+      <header className="mt-5">
+        <h1 className="text-3xl font-bold">
+          {t.category.titleLead} <span className="text-brand-ink">{t.category.titleAccent}</span>
         </h1>
-        <div aria-hidden="true" className="mx-auto mt-4 h-1 w-14 rounded-full bg-gold" />
-        <p className="mt-4 text-base text-foreground/70 sm:text-lg">
-          What do you want to test?
-        </p>
+        <p className="mt-1.5 text-base text-muted">{t.category.subtitle}</p>
       </header>
 
-      <ul className="mt-8 flex flex-col gap-3 sm:mt-10 sm:gap-4">
-        {categories.map((category) => (
-          <li key={category.id}>
+      <ul className="mt-6 flex flex-col gap-2.5">
+        {categories.map((category, i) => (
+          <li key={category.id} className="anim-enter" style={{ "--i": i } as React.CSSProperties}>
             <button
               type="button"
               onClick={() => onSelect(category.id)}
-              className="group flex w-full items-center gap-3 rounded-2xl border border-foreground/10 bg-surface p-4 text-left shadow-sm transition hover:border-brand hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus sm:gap-4 sm:p-5"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left transition hover:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus sm:p-5"
             >
-              <span
-                aria-hidden="true"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-2xl sm:h-14 sm:w-14 sm:text-3xl"
-              >
-                {category.emoji}
-              </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-lg font-bold">{category.label}</span>
-                <span className="mt-0.5 block text-sm text-foreground/70">
-                  {category.description}
-                </span>
+                <span className="block text-lg font-semibold">{category.label}</span>
+                <span className="mt-0.5 block text-sm text-muted">{category.description}</span>
               </span>
-              <span
-                aria-hidden="true"
-                className="shrink-0 text-xl text-brand-ink/60 transition group-hover:text-brand-ink"
-              >
-                →
-              </span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-ink" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </button>
           </li>
         ))}

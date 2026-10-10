@@ -50,7 +50,7 @@ describe("navigation", () => {
 
   it("starting again resets the score and progress (play again)", () => {
     let s = started();
-    s = run(s, { type: "ANSWER", option: correctOf(s) }, { type: "NEXT" });
+    s = run(s, { type: "ANSWER", option: correctOf(s) }, { type: "CHECK" }, { type: "NEXT" });
     const again = run(s, {
       type: "START_QUIZ",
       category: "general-knowledge",
@@ -62,41 +62,46 @@ describe("navigation", () => {
 });
 
 describe("answering", () => {
-  it("awards 10 points and enters feedback on a correct answer", () => {
+  const answer = (s: QuizState, option: string) => run(s, { type: "ANSWER", option });
+
+  it("a pick is recorded but not revealed or scored yet", () => {
     const s0 = started();
-    const s = run(s0, { type: "ANSWER", option: correctOf(s0) });
-    expect(s.phase).toBe("feedback");
-    expect(s.score).toBe(POINTS_PER_CORRECT);
+    const s = answer(s0, correctOf(s0));
+    expect(s.phase).toBe("answering");
     expect(s.selectedAnswer).toBe(correctOf(s0));
-    expect(s.timedOut).toBe(false);
-  });
-
-  it("awards 0 points on a wrong answer", () => {
-    const s0 = started();
-    const s = run(s0, { type: "ANSWER", option: wrongOf(s0) });
-    expect(s.phase).toBe("feedback");
     expect(s.score).toBe(0);
-    expect(s.selectedAnswer).toBe(wrongOf(s0));
   });
 
-  it("cannot change the answer once selected", () => {
+  it("the pick can change until the reveal, and the latest pick counts", () => {
     const s0 = started();
-    const wrong = run(s0, { type: "ANSWER", option: wrongOf(s0) });
-    const after = run(wrong, { type: "ANSWER", option: correctOf(s0) });
-    expect(after).toBe(wrong);
-    expect(after.score).toBe(0);
+    const s = answer(answer(s0, wrongOf(s0)), correctOf(s0));
+    expect(s.selectedAnswer).toBe(correctOf(s0));
+    const checked = run(s, { type: "CHECK" });
+    expect(checked).toMatchObject({ phase: "feedback", score: POINTS_PER_CORRECT, timedOut: false });
   });
 
-  it("cannot score twice for the same question", () => {
+  it("CHECK scores 0 for a wrong pick and needs a pick", () => {
     const s0 = started();
-    const once = run(s0, { type: "ANSWER", option: correctOf(s0) });
-    const twice = run(once, { type: "ANSWER", option: correctOf(s0) });
-    expect(twice.score).toBe(POINTS_PER_CORRECT);
+    expect(run(s0, { type: "CHECK" })).toBe(s0);
+    expect(run(answer(s0, wrongOf(s0)), { type: "CHECK" })).toMatchObject({ phase: "feedback", score: 0 });
+  });
+
+  it("cannot change the answer after the reveal, or score twice", () => {
+    const s0 = started();
+    const revealed = run(answer(s0, correctOf(s0)), { type: "CHECK" });
+    expect(answer(revealed, wrongOf(s0))).toBe(revealed);
+    expect(run(revealed, { type: "CHECK" })).toBe(revealed);
+    expect(revealed.score).toBe(POINTS_PER_CORRECT);
+  });
+
+  it("ignores options that are not on the question", () => {
+    const s0 = started();
+    expect(answer(s0, "Not an option")).toBe(s0);
   });
 });
 
 describe("timeout", () => {
-  it("gives 0 points, no selection, and flags timedOut", () => {
+  it("with no pick: 0 points, no selection, and flags timedOut", () => {
     const s = run(started(), { type: "TIME_UP" });
     expect(s.phase).toBe("feedback");
     expect(s.selectedAnswer).toBeNull();
@@ -104,12 +109,16 @@ describe("timeout", () => {
     expect(s.score).toBe(0);
   });
 
-  it("is ignored if the player already answered", () => {
+  it("with a pick: reveals and scores the latest pick", () => {
     const s0 = started();
-    const answered = run(s0, { type: "ANSWER", option: correctOf(s0) });
-    const after = run(answered, { type: "TIME_UP" });
-    expect(after).toBe(answered);
-    expect(after.timedOut).toBe(false);
+    const s = run(s0, { type: "ANSWER", option: wrongOf(s0) }, { type: "ANSWER", option: correctOf(s0) }, { type: "TIME_UP" });
+    expect(s).toMatchObject({ phase: "feedback", timedOut: false, score: POINTS_PER_CORRECT });
+  });
+
+  it("is ignored once revealed", () => {
+    const s0 = started();
+    const revealed = run(s0, { type: "ANSWER", option: correctOf(s0) }, { type: "CHECK" });
+    expect(run(revealed, { type: "TIME_UP" })).toBe(revealed);
   });
 
   it("blocks answering after time is up", () => {
@@ -149,7 +158,7 @@ describe("full games", () => {
   it("scores 100 when every answer is correct", () => {
     let s = started();
     for (let i = 0; i < 10; i++) {
-      s = run(s, { type: "ANSWER", option: correctOf(s) }, { type: "NEXT" });
+      s = run(s, { type: "ANSWER", option: correctOf(s) }, { type: "CHECK" }, { type: "NEXT" });
     }
     expect(s.screen).toBe("results");
     expect(s.score).toBe(MAX_SCORE);
@@ -158,8 +167,8 @@ describe("full games", () => {
   it("scores a mix of correct, wrong and timed-out answers", () => {
     let s = started();
     for (let i = 0; i < 10; i++) {
-      if (i % 3 === 0) s = run(s, { type: "ANSWER", option: correctOf(s) });
-      else if (i % 3 === 1) s = run(s, { type: "ANSWER", option: wrongOf(s) });
+      if (i % 3 === 0) s = run(s, { type: "ANSWER", option: correctOf(s) }, { type: "CHECK" });
+      else if (i % 3 === 1) s = run(s, { type: "ANSWER", option: wrongOf(s) }, { type: "CHECK" });
       else s = run(s, { type: "TIME_UP" });
       s = run(s, { type: "NEXT" });
     }
@@ -174,8 +183,8 @@ describe("results and replay", () => {
     for (let i = 0; i < 10; i++) {
       s =
         i < correctCount
-          ? run(s, { type: "ANSWER", option: correctOf(s) })
-          : run(s, { type: "ANSWER", option: wrongOf(s) });
+          ? run(s, { type: "ANSWER", option: correctOf(s) }, { type: "CHECK" })
+          : run(s, { type: "ANSWER", option: wrongOf(s) }, { type: "CHECK" });
       s = run(s, { type: "NEXT" });
     }
     return s;

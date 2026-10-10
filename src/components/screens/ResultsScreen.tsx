@@ -6,12 +6,13 @@ import {
   MAX_SCORE,
   QUESTIONS_PER_GAME,
   getCorrectCount,
-  getResultMessage,
 } from "@/lib/quiz/scoring";
+import { useCopy } from "@/lib/i18n/useCopy";
 import type { CategoryId } from "@/lib/types";
 import { Confetti } from "@/components/results/Confetti";
 import { Trophy } from "@/components/results/Trophy";
 import { Button } from "@/components/ui/Button";
+import { TopBar } from "@/components/ui/TopBar";
 
 interface ResultsScreenProps {
   score: number;
@@ -26,6 +27,7 @@ export function ResultsScreen({
   onPlayAgain,
   onChooseCategory,
 }: ResultsScreenProps) {
+  const t = useCopy();
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     // The last question may have scrolled down to reach the button; start the results at the top.
@@ -38,40 +40,34 @@ export function ResultsScreen({
   const percent = (score / MAX_SCORE) * 100;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center px-6 py-8 text-center">
-      <div className="relative flex h-36 w-full items-center justify-center sm:h-40">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 py-4 text-center sm:px-6 sm:py-6">
+      <TopBar title={categoryLabel} />
+      <div className="relative mt-4 flex h-36 w-full items-center justify-center sm:h-40">
         <Confetti />
-        <Trophy className="relative h-24 w-auto drop-shadow-sm sm:h-28" />
+        <Trophy className="relative h-24 w-auto sm:h-28" />
       </div>
 
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="mt-2 text-base font-extrabold uppercase tracking-widest text-foreground/65 dark:text-foreground/60 focus:outline-none"
+        className="mt-2 text-base font-semibold text-muted focus:outline-none"
       >
-        Quiz completed
+        {t.results.completed}
       </h1>
-      <div aria-hidden="true" className="mt-3 h-1 w-14 rounded-full bg-gold" />
-
-      {categoryLabel && (
-        <p className="mt-4 rounded-full bg-brand-soft px-4 py-1 text-sm font-bold text-brand-ink">
-          {categoryLabel}
-        </p>
-      )}
 
       <section
         aria-label="Your result"
-        className="mt-6 w-full rounded-3xl border border-foreground/10 bg-surface px-6 py-7 shadow-sm"
+        className="mt-6 w-full rounded-3xl border border-line bg-surface px-6 py-7"
       >
-        <p className="text-2xl font-extrabold text-brand-deep sm:text-3xl">
-          {getResultMessage(score)}
+        <p className="font-display text-2xl font-semibold text-brand-deep sm:text-3xl">
+          {t.results.message(score)}
         </p>
 
         <p className="mt-3 flex items-baseline justify-center gap-2">
-          <span className="text-7xl font-extrabold leading-none tracking-tight text-brand-ink sm:text-8xl">
+          <span className="font-display text-7xl font-bold leading-none text-brand-ink sm:text-8xl">
             {score}
           </span>
-          <span className="text-2xl font-bold text-foreground/50">/ {MAX_SCORE}</span>
+          <span className="text-2xl font-semibold text-muted">/ {MAX_SCORE}</span>
         </p>
 
         <div
@@ -81,7 +77,7 @@ export function ResultsScreen({
           aria-valuemax={MAX_SCORE}
           aria-valuenow={score}
           aria-valuetext={`${score} out of ${MAX_SCORE} points`}
-          className="mt-5 h-4 w-full overflow-hidden rounded-full bg-foreground/10 dark:bg-foreground/5"
+          className="mt-5 h-4 w-full overflow-hidden rounded-full bg-line dark:bg-surface-2"
         >
           <div
             className="score-bar-fill h-full rounded-full bg-brand"
@@ -89,19 +85,18 @@ export function ResultsScreen({
           />
         </div>
 
-        <p className="mt-4 text-base font-semibold text-foreground/70">
-          <span className="font-extrabold text-brand-ink">{correct}</span> of {QUESTIONS_PER_GAME}{" "}
-          correct
+        <p className="mt-4 text-base font-semibold text-muted">
+          <span className="font-semibold text-brand-ink">{correct}</span> of {QUESTIONS_PER_GAME}{" "}
+          {t.results.correctOf}
         </p>
       </section>
 
       <div className="mt-6 flex w-full flex-col gap-3">
         <Button onClick={onPlayAgain} className="w-full">
-          PLAY AGAIN
-          <span aria-hidden="true">↻</span>
+          {t.results.playAgain}
         </Button>
         <Button variant="secondary" onClick={onChooseCategory} className="w-full">
-          CHOOSE ANOTHER CATEGORY
+          {t.results.chooseCategory}
         </Button>
       </div>
     </main>

@@ -28,7 +28,7 @@ export interface Category {
 
 export type Screen = "home" | "category" | "quiz" | "results";
 
-/** `answering`: waiting for a selection. `feedback`: answer locked, showing the result. */
+/** `answering`: the player can pick and change their pick. `feedback`: revealed, showing the result. */
 export type Phase = "answering" | "feedback";
 
 export interface QuizState {
@@ -38,7 +38,7 @@ export interface QuizState {
   questions: Question[];
   currentIndex: number;
   phase: Phase;
-  /** The option the player picked, or null if none (including on timeout). */
+  /** The option the player picked (their latest pick), or null if none. */
   selectedAnswer: string | null;
   timedOut: boolean;
   score: number;
@@ -48,6 +48,10 @@ export type QuizAction =
   | { type: "GO_HOME" }
   | { type: "GO_TO_CATEGORIES" }
   | { type: "START_QUIZ"; category: CategoryId; questions: Question[] }
+  /** Pick or change the answer. Nothing is revealed or scored yet. */
   | { type: "ANSWER"; option: string }
+  /** The player asks to see the result now. Needs a pick. */
+  | { type: "CHECK" }
+  /** The timer ran out: reveal, scoring the latest pick if there is one. */
   | { type: "TIME_UP" }
   | { type: "NEXT" };

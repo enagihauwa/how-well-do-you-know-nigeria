@@ -67,7 +67,7 @@ Each game contains 10 questions.
 
 Each question has four possible answers.
 
-The player can select only one answer.
+The player picks one answer and can change it until the answer is revealed (when time runs out, or when they choose Check answer).
 
 Each question has a 10-second countdown timer.
 
@@ -75,11 +75,11 @@ Scoring:
 
 - Correct answer = 10 points
 - Incorrect answer = 0 points
-- Time expires = 0 points
+- Time expires with no pick = 0 points
 
 Maximum score per game = 100 points.
 
-Once an answer has been selected, the player cannot change it.
+Once the answer has been revealed, the player cannot change it. If time runs out, the latest pick is scored; with no pick, the question scores 0.
 
 The game should show whether the answer was correct or incorrect before moving to the next question.
 

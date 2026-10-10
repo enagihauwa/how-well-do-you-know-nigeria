@@ -37,6 +37,7 @@ export function Game() {
           state={state}
           onBack={() => dispatch({ type: "GO_TO_CATEGORIES" })}
           onAnswer={(option) => dispatch({ type: "ANSWER", option })}
+          onCheck={() => dispatch({ type: "CHECK" })}
           onTimeUp={() => dispatch({ type: "TIME_UP" })}
           onNext={() => dispatch({ type: "NEXT" })}
         />

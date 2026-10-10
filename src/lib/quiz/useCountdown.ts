@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+import { useSecondsLeft } from "./useSecondsLeft";
 
 interface UseCountdownOptions {
   seconds: number;
-  /** The countdown ticks only while true. Turning it off freezes the remaining time. */
+  /** The countdown runs only while true. Turning it off freezes it. */
   running: boolean;
   onExpire: () => void;
 }
 
 /**
- * Single countdown for one question. Mount it with a `key` per question so it
- * starts fresh each time. Remaining time is computed from an end timestamp, not
- * by counting ticks, so it stays accurate when the tab is throttled.
- * It only reports expiry; the reducer decides what an expiry means.
+ * Single countdown for one question. Mount it with a `key` per question so it starts fresh.
+ * It fires `onExpire` from one timeout at the deadline (no polling), and reports whole seconds
+ * once a second. The bar itself animates in CSS from `endsAt`, so nothing re-renders per frame.
  */
-export function useCountdown({ seconds, running, onExpire }: UseCountdownOptions): number {
-  const [remainingMs, setRemainingMs] = useState(seconds * 1000);
+export function useCountdown({ seconds, running, onExpire }: UseCountdownOptions) {
+  const [endsAt] = useState(() => Date.now() + seconds * 1000);
   const onExpireRef = useRef(onExpire);
 
   useEffect(() => {
@@ -23,21 +23,9 @@ export function useCountdown({ seconds, running, onExpire }: UseCountdownOptions
 
   useEffect(() => {
     if (!running) return;
+    const id = setTimeout(() => onExpireRef.current(), Math.max(0, endsAt - Date.now()));
+    return () => clearTimeout(id);
+  }, [running, endsAt]);
 
-    const endTime = Date.now() + remainingMs;
-    const id = setInterval(() => {
-      const left = Math.max(0, endTime - Date.now());
-      setRemainingMs(left);
-      if (left === 0) {
-        clearInterval(id);
-        onExpireRef.current();
-      }
-    }, 100);
-
-    return () => clearInterval(id);
-    // `remainingMs` is intentionally read only when (re)starting.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running]);
-
-  return remainingMs;
+  return { endsAt, secondsLeft: useSecondsLeft(endsAt, running) };
 }

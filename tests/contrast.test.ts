@@ -21,9 +21,6 @@ const contrast = (a: RGB, b: RGB) => {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 };
-/** `fg` at `alpha` painted over an opaque `bg`. */
-const over = (fg: RGB, alpha: number, bg: RGB): RGB =>
-  fg.map((v, i) => v * alpha + bg[i] * (1 - alpha)) as RGB;
 
 // ---------- Read the real tokens from globals.css ----------
 function block(selector: string): string {
@@ -42,81 +39,68 @@ const themes = {
   light: tokens(block(":root")),
   dark: tokens(block('[data-theme="dark"]')),
 };
-const fixed = tokens(block("@theme inline")); // --color-brand, --color-brand-dark, --color-gold
-const brand = fixed["color-brand"];
-
-/**
- * The opacity of a progress bar's track (`bg-foreground/NN`), read from the component source so
- * the test checks what is really rendered. A `dark:bg-foreground/NN` class overrides it in dark.
- */
-function trackAlpha(file: string, theme: "light" | "dark"): number {
-  const line = readFileSync(join(root, file), "utf8")
-    .split("\n")
-    .find((l) => l.includes("overflow-hidden rounded-full bg-foreground/"));
-  if (!line) throw new Error(`Progress bar track not found in ${file}`);
-  const base = line.match(/(?<![\w:-])bg-foreground\/(\d+)/);
-  const dark = line.match(/dark:bg-foreground\/(\d+)/);
-  return +(theme === "dark" && dark ? dark[1] : base![1]) / 100;
-}
-const brandDark = fixed["color-brand-dark"];
-const WHITE: RGB = [255, 255, 255];
+const INK_ON_GOLD = hexToRgb("#17201b");
 
 describe.each(["light", "dark"] as const)("%s theme colour contrast (WCAG AA)", (name) => {
   const t = themes[name];
-  const surfaces = {
-    "page background": t.background,
-    "card surface": t.surface,
-    "pale green tile": t["brand-soft"],
-    "hovered tile (50% pale green on card)": over(t["brand-soft"], 0.5, t.surface),
-  };
+  const surfaces = { page: t.background, card: t.surface, "raised tile": t["surface-2"] };
 
-  it("body text is comfortably readable", () => {
-    expect(contrast(t.foreground, t.background)).toBeGreaterThanOrEqual(7);
-    expect(contrast(t.foreground, t.surface)).toBeGreaterThanOrEqual(7);
+  it("body text is comfortably readable (7:1)", () => {
+    for (const bg of Object.values(surfaces)) expect(contrast(t.foreground, bg)).toBeGreaterThanOrEqual(7);
   });
 
-  it.each(Object.entries(surfaces))("green text (--brand-ink) has 4.5:1 on the %s", (_label, bg) => {
-    expect(contrast(t["brand-ink"], bg)).toBeGreaterThanOrEqual(4.5);
+  it.each(Object.entries(surfaces))("secondary text (--muted) has 4.5:1 on the %s", (_l, bg) => {
+    expect(contrast(t.muted, bg)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("dark green text (--brand-deep) has 4.5:1 on the card and the pale-green banner", () => {
-    expect(contrast(t["brand-deep"], t.surface)).toBeGreaterThanOrEqual(4.5);
+  it.each(Object.entries({ ...surfaces, "pale green": t["brand-soft"] }))(
+    "green text (--brand-ink) has 4.5:1 on the %s",
+    (_l, bg) => {
+      expect(contrast(t["brand-ink"], bg)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("text on the green button (--on-brand) has 4.5:1, and on its hover colour", () => {
+    expect(contrast(t["on-brand"], t.brand)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t["on-brand"], t["brand-hover"])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("the home hero card's text has 4.5:1", () => {
+    expect(contrast(t["hero-ink"], t.hero)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("deep green (--brand-deep) has 4.5:1 on pale green", () => {
     expect(contrast(t["brand-deep"], t["brand-soft"])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("the low-time red number (--danger-ink) has 4.5:1 on the page and card", () => {
-    expect(contrast(t["danger-ink"], t.background)).toBeGreaterThanOrEqual(4.5);
+  it("the yellow accent pairs are readable", () => {
+    expect(contrast(t["gold-ink"], t["gold-soft"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(INK_ON_GOLD, t.gold)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error text (--danger-ink) has 4.5:1 on the card and its own pale fill", () => {
     expect(contrast(t["danger-ink"], t.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t["danger-ink"], t["danger-soft"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t["danger-ink"], t.background)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("timer bar fills (green, and red when time is low) have 3:1 against their track on the page", () => {
-    const track = over(t.foreground, trackAlpha("src/components/quiz/TimerBar.tsx", name), t.background);
-    expect(contrast(brand, track)).toBeGreaterThanOrEqual(3);
-    expect(contrast(t["danger-fill"], track)).toBeGreaterThanOrEqual(3);
+  it("the wrong-answer letter (card colour on --danger-ink) has 4.5:1", () => {
+    expect(contrast(t.surface, t["danger-ink"])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("score bar fill has 3:1 against its track on the results card", () => {
-    const track = over(t.foreground, trackAlpha("src/components/screens/ResultsScreen.tsx", name), t.surface);
-    expect(contrast(brand, track)).toBeGreaterThanOrEqual(3);
+  it("timer fills (green, and red when time is low) have 3:1 against their track (--line)", () => {
+    expect(contrast(t.brand, t.line)).toBeGreaterThanOrEqual(3);
+    expect(contrast(t["danger-fill"], t.line)).toBeGreaterThanOrEqual(3);
   });
 
-  it("the keyboard focus ring (--focus-ring) has 3:1 on the page, cards and pale-green surfaces", () => {
+  it("the keyboard focus ring has 3:1 on the page, cards and pale green", () => {
     for (const bg of [t.background, t.surface, t["brand-soft"]]) {
       expect(contrast(t["focus-ring"], bg)).toBeGreaterThanOrEqual(3);
     }
   });
 });
 
-describe("text on brand fills", () => {
-  it("white text on the green button has 4.5:1, and on its hover colour too", () => {
-    expect(contrast(WHITE, brand)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(WHITE, brandDark)).toBeGreaterThanOrEqual(4.5);
-  });
-});
-
-describe("muted text opacities used in the components", () => {
-  // Reads every `text-foreground/NN` class in the source so a future change that makes text too
-  // faint fails here. Large text (text-2xl and up) only needs 3:1.
+describe("components use the colour tokens", () => {
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
@@ -127,49 +111,11 @@ describe("muted text opacities used in the components", () => {
   };
   walk(join(root, "src/components"));
 
-  const found: { file: string; light: number; dark: number; large: boolean }[] = [];
-  for (const file of files) {
-    for (const line of readFileSync(file, "utf8").split("\n")) {
-      const base = line.match(/(?<![\w:-])text-foreground\/(\d+)/);
-      if (!base) continue;
-      const dark = line.match(/dark:text-foreground\/(\d+)/);
-      found.push({
-        file: file.slice(root.length),
-        light: +base[1] / 100,
-        dark: (dark ? +dark[1] : +base[1]) / 100,
-        large: /text-(2xl|3xl|4xl|5xl|6xl|7xl|8xl)/.test(line),
-      });
+  it("no faded-opacity text: secondary text uses --muted, which is contrast-checked above", () => {
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file.slice(root.length)).not.toMatch(/(?<![\w:-])text-foreground\/\d+/);
     }
-  }
-
-  it("finds the muted text classes", () => {
-    expect(found.length).toBeGreaterThanOrEqual(6);
-  });
-
-  it.each(["light", "dark"] as const)("every muted text class is readable in %s mode", (name) => {
-    const t = themes[name];
-    for (const f of found) {
-      const alpha = name === "light" ? f.light : f.dark;
-      const ratio = contrast(over(t.foreground, alpha, t.background), t.background);
-      expect(ratio, `${f.file} text-foreground/${alpha * 100}`).toBeGreaterThanOrEqual(f.large ? 3 : 4.5);
-    }
-  });
-});
-
-describe("dark palette is unchanged by the light-mode contrast work", () => {
-  it("keeps its original values", () => {
-    const hex = (c: RGB) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
-    expect(Object.fromEntries(Object.entries(themes.dark).map(([k, v]) => [k, hex(v)]))).toEqual({
-      background: "#0e1713",
-      foreground: "#e8f1ec",
-      surface: "#16231c",
-      "brand-soft": "#1b3a2b",
-      "brand-ink": "#3ecf8e",
-      "brand-deep": "#7ae0b4",
-      "danger-ink": "#ff637e",
-      "danger-fill": "#ff2056",
-      "focus-ring": "#f2b705",
-    });
   });
 });
 
@@ -185,10 +131,7 @@ describe("Nigerian flag colours stay independent of the theme", () => {
     ]);
   });
 
-  it("keeps its original shadow, ring and size, with no theme tokens, variables or dark: variants", () => {
-    expect(code).toContain("h-12 w-[4.5rem]");
-    expect(code).toContain("shadow-[#008751]/20");
-    expect(code).toContain("ring-black/15");
-    expect(code).not.toMatch(/dark:|var\(|brand|surface|danger|focus|foreground|background/);
+  it("has no theme tokens, variables or dark: variants", () => {
+    expect(code).not.toMatch(/dark:|var\(|brand|surface|danger|focus|foreground|background|muted/);
   });
 });

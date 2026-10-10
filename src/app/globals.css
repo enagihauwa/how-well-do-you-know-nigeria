@@ -3,57 +3,100 @@
 /* `dark:` utilities apply when <html data-theme="dark"> is set (see src/lib/theme.ts). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* Light is the default and keeps the original look. Colours that change per theme are variables. */
+/*
+ * Colour tokens. Green leads; yellow is a small accent (locked answers, host badge, the stripe).
+ * Light is a cool off-white, dark is a deep green-black. Contrast ratios are checked in
+ * tests/contrast.test.ts, which reads these values.
+ */
 :root {
   color-scheme: light;
-  --background: #fbfbf8;
-  --foreground: #12261c;
+  --background: #f3f6f2;
+  --foreground: #17201b;
+  --muted: #56615a;
   --surface: #ffffff;
-  --brand-soft: #e6f4ec;
-  /* Green used for text. Fills keep the fixed brand green below. WCAG AA: 4.5:1 on every light surface. */
-  --brand-ink: #007d4b;
-  --brand-deep: #006b40;
-  /* Low-time red: text 4.5:1, bar fill 3:1 against its track. */
-  --danger-ink: #e5003d;
-  --danger-fill: #f91f54;
-  /* Keyboard focus ring: 3:1 against the page, cards and pale-green surfaces. */
-  --focus-ring: #ac8204;
+  --surface-2: #eef3ef;
+  --line: #dfe5e0;
+  --brand: #0b7a47;
+  --on-brand: #ffffff;
+  --brand-hover: #08613a;
+  --brand-soft: #e3f1e8;
+  --brand-ink: #0b7a47;
+  --brand-deep: #08613a;
+  /* The home hero card: one deep green panel in both themes. */
+  --hero: #0b7a47;
+  --hero-ink: #ffffff;
+  --gold: #f2b705;
+  --gold-soft: #fff6d6;
+  --gold-ink: #6b4e00;
+  --danger-ink: #b42318;
+  --danger-fill: #d92d20;
+  --danger-soft: #fdecea;
+  --focus-ring: #1f5fd1;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: #0e1713;
-  --foreground: #e8f1ec;
-  --surface: #16231c;
-  --brand-soft: #1b3a2b;
-  --brand-ink: #3ecf8e;
-  --brand-deep: #7ae0b4;
-  --danger-ink: #ff637e;
-  --danger-fill: #ff2056;
-  --focus-ring: #f2b705;
+  --background: #0f1512;
+  --foreground: #ecf2ee;
+  --muted: #a3b0a8;
+  --surface: #18211c;
+  --surface-2: #222d27;
+  --line: #2c3832;
+  --brand: #3fbf7f;
+  --on-brand: #0f1512;
+  --brand-hover: #5fd39a;
+  --brand-soft: #143524;
+  --brand-ink: #5fd39a;
+  --brand-deep: #8be3b7;
+  --hero: #145a37;
+  --hero-ink: #ecf2ee;
+  --gold: #f2b705;
+  --gold-soft: #3a3010;
+  --gold-ink: #f5cf5b;
+  --danger-ink: #ff8a80;
+  --danger-fill: #f04438;
+  --danger-soft: #3a1715;
+  --focus-ring: #7fa8ff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
   --color-surface: var(--surface);
-  --color-brand: #008751;
-  --color-brand-dark: #006b40;
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-on-brand: var(--on-brand);
+  --color-brand-hover: var(--brand-hover);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
   --color-brand-deep: var(--brand-deep);
+  --color-hero: var(--hero);
+  --color-hero-ink: var(--hero-ink);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-ink: var(--gold-ink);
   --color-danger-ink: var(--danger-ink);
   --color-danger-fill: var(--danger-fill);
+  --color-danger-soft: var(--danger-soft);
   --color-focus: var(--focus-ring);
-  --color-gold: #f2b705;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-figtree);
+  --font-display: var(--font-bricolage);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Headings use the display face, at a moderate weight. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 /* Results screen celebration. Only runs when the user has not asked for reduced motion. */
@@ -74,7 +117,110 @@ body {
   }
 }
 
+/* Timer fill: shrinks from --from to empty on the compositor. Not motion-gated: it carries
+   information (time left), and a linear shrink is not the kind of motion that causes discomfort. */
+@keyframes deadline-shrink {
+  from {
+    transform: scaleX(var(--from, 1));
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.timer-fill {
+  animation-name: deadline-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+/* Bottom sheet (see BottomSheet.tsx). The dialog is pinned to the bottom of the screen. */
+dialog.sheet {
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  max-width: 36rem;
+  max-height: 88dvh;
+  background: transparent;
+  overflow: visible;
+  color: var(--foreground);
+}
+dialog.sheet::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+.sheet-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.15);
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
+  dialog.sheet[open] .sheet-panel {
+    animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  dialog.sheet[open]::backdrop {
+    animation: fade-in 0.2s ease-out;
+  }
+}
+
+/* Game animations. Transform and opacity only, so they run on the compositor on low-end phones. */
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A list that enters item by item: set --i on each child. */
+  .anim-enter {
+    animation: enter-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 50ms);
+  }
+  .anim-pop {
+    animation: pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .anim-pulse {
+    animation: pulse-soft 1.2s ease-in-out infinite;
+  }
   .confetti-piece {
     animation: confetti-pop 0.7s ease-out both;
     animation-delay: var(--delay, 0s);

@@ -1,3 +1,5 @@
+import { useCopy } from "@/lib/i18n/useCopy";
+
 export type FeedbackKind = "correct" | "wrong" | "timeout";
 
 interface FeedbackBannerProps {
@@ -9,27 +11,22 @@ interface FeedbackBannerProps {
 const styles: Record<FeedbackKind, string> = {
   correct: "border-brand/30 bg-brand-soft text-brand-deep",
   wrong:
-    "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200",
+    "border-danger-fill/40 bg-danger-soft text-danger-ink",
   timeout:
-    "border-gold/60 bg-amber-50 text-amber-900 dark:border-gold/40 dark:bg-amber-950/50 dark:text-amber-200",
-};
-
-const titles: Record<FeedbackKind, string> = {
-  correct: "✓ Correct!",
-  wrong: "✗ Not quite!",
-  timeout: "⏱ Time's up!",
+    "border-gold/60 bg-gold-soft text-gold-ink",
 };
 
 /** The wrapper is always rendered so the live region announces the feedback when it appears. */
 export function FeedbackBanner({ kind, correctAnswer }: FeedbackBannerProps) {
+  const t = useCopy();
   return (
     <div role="status" aria-live="polite" className="min-h-[4.5rem]">
       {kind && (
         <div className={`rounded-2xl border px-4 py-3 text-center ${styles[kind]}`}>
-          <p className="text-lg font-extrabold">{titles[kind]}</p>
+          <p className="text-lg font-semibold">{t.feedback[kind]}</p>
           {kind !== "correct" && (
             <p className="mt-0.5 text-sm">
-              The correct answer is <strong>{correctAnswer}</strong>.
+              {t.feedback.correctAnswerIs} <strong>{correctAnswer}</strong>.
             </p>
           )}
         </div>
